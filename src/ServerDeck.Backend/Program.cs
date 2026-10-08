@@ -13,6 +13,7 @@ builder.Services.AddSingleton<IAuthService, AuthService>();
 builder.Services.AddSingleton<ISettingsService, SettingsService>();
 builder.Services.AddSingleton<ISshConnectionManager, SshConnectionManager>();
 builder.Services.AddScoped<IHostService, HostService>();
+builder.Services.AddScoped<ISftpService, SftpService>();
 
 // JWT Authentication configuration
 var jwtSecret = builder.Configuration["JWT_SECRET"];
