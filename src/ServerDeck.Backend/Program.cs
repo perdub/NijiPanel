@@ -11,6 +11,8 @@ builder.Services.AddSingleton<DatabaseContext>();
 builder.Services.AddSingleton<IEncryptionService, EncryptionService>();
 builder.Services.AddSingleton<IAuthService, AuthService>();
 builder.Services.AddSingleton<ISettingsService, SettingsService>();
+builder.Services.AddSingleton<ISshConnectionManager, SshConnectionManager>();
+builder.Services.AddScoped<IHostService, HostService>();
 
 // JWT Authentication configuration
 var jwtSecret = builder.Configuration["JWT_SECRET"];
