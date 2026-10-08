@@ -1,0 +1,16 @@
+services:
+  serverdeck:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: serverdeck:latest
+    container_name: serverdeck
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./serverdeck_data:/data
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - DATABASE_PATH=/data/servers.db
