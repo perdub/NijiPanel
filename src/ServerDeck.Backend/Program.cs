@@ -14,6 +14,7 @@ builder.Services.AddSingleton<ISettingsService, SettingsService>();
 builder.Services.AddSingleton<ISshConnectionManager, SshConnectionManager>();
 builder.Services.AddScoped<IHostService, HostService>();
 builder.Services.AddScoped<ISftpService, SftpService>();
+builder.Services.AddScoped<IDockerService, DockerService>();
 builder.Services.AddSingleton<ITerminalSessionManager, TerminalSessionManager>();
 
 // JWT Authentication configuration
