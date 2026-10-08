@@ -1,0 +1,6 @@
+@ServerDeck.Backend_HostAddress = http://localhost:5028
+
+GET {{ServerDeck.Backend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
