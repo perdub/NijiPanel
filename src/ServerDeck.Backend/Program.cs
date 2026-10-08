@@ -14,6 +14,7 @@ builder.Services.AddSingleton<ISettingsService, SettingsService>();
 builder.Services.AddSingleton<ISshConnectionManager, SshConnectionManager>();
 builder.Services.AddScoped<IHostService, HostService>();
 builder.Services.AddScoped<ISftpService, SftpService>();
+builder.Services.AddSingleton<ITerminalSessionManager, TerminalSessionManager>();
 
 // JWT Authentication configuration
 var jwtSecret = builder.Configuration["JWT_SECRET"];
@@ -95,6 +96,37 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// WebSocket endpoint for persistent interactive terminal
+app.Map("/ws/terminal", async (HttpContext context, IHostService hostService, ITerminalSessionManager termManager) =>
+{
+    if (!context.WebSockets.IsWebSocketRequest)
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        return;
+    }
+
+    var hostId = context.Request.Query["hostId"].ToString();
+    if (string.IsNullOrEmpty(hostId))
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        return;
+    }
+
+    var host = await hostService.GetHostEntityAsync(hostId);
+    if (host == null)
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    var sessionId = context.Request.Query["sessionId"].ToString();
+    uint.TryParse(context.Request.Query["cols"], out var cols);
+    uint.TryParse(context.Request.Query["rows"], out var rows);
+
+    var ws = await context.WebSockets.AcceptWebSocketAsync();
+    await termManager.HandleWebSocketAsync(ws, host, string.IsNullOrEmpty(sessionId) ? null : sessionId, cols, rows);
+});
 
 // SPA fallback for frontend client-side routing
 app.MapFallbackToFile("index.html");
