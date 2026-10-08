@@ -24,6 +24,11 @@ public record HostSystemStats(
     string? MemoryUsage,
     string? DiskUsage,
     string? CpuUsage,
+    string? NetworkUsage,
+    string? LoadAverage,
+    int? CpuPercent,
+    int? MemoryPercent,
+    int? DiskPercent,
     string? DockerVersion,
     string? Error = null
 );
@@ -97,6 +102,7 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
 
         var connInfo = CreateConnectionInfo(host);
         var client = new SshClient(connInfo);
+        client.KeepAliveInterval = TimeSpan.FromSeconds(15);
         client.Connect();
         _sshClients[host.Id] = client;
         return client;
@@ -113,6 +119,7 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
 
         var connInfo = CreateConnectionInfo(host);
         var client = new SftpClient(connInfo);
+        client.KeepAliveInterval = TimeSpan.FromSeconds(15);
         client.Connect();
         _sftpClients[host.Id] = client;
         return client;
@@ -165,20 +172,25 @@ else
 fi
 echo '---UPTIME---'
 uptime -p 2>/dev/null || uptime | awk '{print $3,$4}'
+echo '---LOAD---'
+cat /proc/loadavg 2>/dev/null | awk '{print $1, $2, $3}' || echo ''
 echo '---MEM---'
-free -m 2>/dev/null | awk 'NR==2{printf ""%.1f / %.1f GB (%.0f%%)"", $3/1024, $2/1024, ($2>0 ? $3*100/$2 : 0)}'
+free -m 2>/dev/null | awk 'NR==2{printf ""%d|%d|%.1f / %.1f GB (%.0f%%)"", $3, $2, $3/1024, $2/1024, ($2>0 ? $3*100/$2 : 0)}'
 echo ''
 echo '---DISK---'
-df -h / 2>/dev/null | awk 'NR==2{print $3 "" / "" $2 "" ("" $5 "")""}'
+df -m / 2>/dev/null | awk 'NR==2{printf ""%d|%d|%.1f / %.1f GB (%s)"", $3, $2, $3/1024, $2/1024, $5}'
+echo ''
+echo '---NET---'
+awk 'NR>2 && $1 !~ /lo:/ {rx+=$2; tx+=$10} END {printf ""RX: %.2f GB | TX: %.2f GB"", rx/1024/1024/1024, tx/1024/1024/1024}' /proc/net/dev 2>/dev/null || echo ''
+echo '---CPU---'
+top -bn1 2>/dev/null | grep ""Cpu(s)"" | sed ""s/.*, *\([0-9.]*\)%* id.*/\1/"" | awk '{printf ""%d"", 100 - $1}' || echo '0'
 echo '---DOCKER---'
 docker --version 2>/dev/null || echo 'Not installed'
-echo '---CPU---'
-top -bn1 2>/dev/null | grep ""Cpu(s)"" | sed ""s/.*, *\([0-9.]*\)%* id.*/\1/"" | awk '{print 100 - $1""%""}' || echo ''
 ";
             var result = await RunCommandAsync(host, query, timeoutSeconds: 10);
             if (result.ExitCode != 0 && string.IsNullOrEmpty(result.Output))
             {
-                return new HostSystemStats(false, null, null, null, null, null, null, result.Error);
+                return new HostSystemStats(false, null, null, null, null, null, null, null, null, null, null, null, result.Error);
             }
 
             var text = result.Output;
@@ -194,16 +206,60 @@ top -bn1 2>/dev/null | grep ""Cpu(s)"" | sed ""s/.*, *\([0-9.]*\)%* id.*/\1/"" |
 
             var os = ExtractSection("OS");
             var uptime = ExtractSection("UPTIME");
-            var mem = ExtractSection("MEM");
-            var disk = ExtractSection("DISK");
+            var load = ExtractSection("LOAD");
+            var memRaw = ExtractSection("MEM");
+            var diskRaw = ExtractSection("DISK");
+            var net = ExtractSection("NET");
+            var cpuRaw = ExtractSection("CPU");
             var docker = ExtractSection("DOCKER");
-            var cpu = ExtractSection("CPU");
 
-            return new HostSystemStats(true, os, uptime, mem, disk, string.IsNullOrEmpty(cpu) ? "N/A" : cpu, docker);
+            int? cpuPercent = int.TryParse(cpuRaw, out var cp) ? cp : null;
+            string cpuUsage = cpuPercent.HasValue ? $"{cpuPercent}%" : "0%";
+
+            // Parse MEM: used|total|formatted
+            string memUsage = memRaw;
+            int? memPercent = null;
+            if (memRaw.Contains('|'))
+            {
+                var parts = memRaw.Split('|');
+                if (parts.Length >= 3 && int.TryParse(parts[0], out var u) && int.TryParse(parts[1], out var t) && t > 0)
+                {
+                    memPercent = (int)Math.Round((double)u * 100 / t);
+                    memUsage = parts[2];
+                }
+            }
+
+            // Parse DISK: used|total|formatted
+            string diskUsage = diskRaw;
+            int? diskPercent = null;
+            if (diskRaw.Contains('|'))
+            {
+                var parts = diskRaw.Split('|');
+                if (parts.Length >= 3 && int.TryParse(parts[0], out var du) && int.TryParse(parts[1], out var dt) && dt > 0)
+                {
+                    diskPercent = (int)Math.Round((double)du * 100 / dt);
+                    diskUsage = parts[2];
+                }
+            }
+
+            return new HostSystemStats(
+                true,
+                os,
+                uptime,
+                memUsage,
+                diskUsage,
+                cpuUsage,
+                string.IsNullOrEmpty(net) ? "N/A" : net,
+                string.IsNullOrEmpty(load) ? "N/A" : load,
+                cpuPercent,
+                memPercent,
+                diskPercent,
+                docker
+            );
         }
         catch (Exception ex)
         {
-            return new HostSystemStats(false, null, null, null, null, null, null, ex.Message);
+            return new HostSystemStats(false, null, null, null, null, null, null, null, null, null, null, null, ex.Message);
         }
     }
 
