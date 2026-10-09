@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Microsoft.Extensions.DependencyInjection;
 using Renci.SshNet;
 using ServerDeck.Backend.Data;
 using ServerDeck.Backend.Models;
@@ -18,17 +19,17 @@ public class TunnelService : ITunnelService
 {
     private readonly DatabaseContext _dbContext;
     private readonly ISshConnectionManager _sshManager;
-    private readonly IHostService _hostService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ConcurrentDictionary<string, ForwardedPortLocal> _activePorts = new();
 
     public TunnelService(
         DatabaseContext dbContext,
         ISshConnectionManager sshManager,
-        IHostService hostService)
+        IServiceScopeFactory scopeFactory)
     {
         _dbContext = dbContext;
         _sshManager = sshManager;
-        _hostService = hostService;
+        _scopeFactory = scopeFactory;
     }
 
     public async Task<List<SshTunnelDto>> GetTunnelsAsync(string hostId)
@@ -116,7 +117,12 @@ public class TunnelService : ITunnelService
 
         if (entity == null) return (false, "Tunnel not found");
 
-        var host = await _hostService.GetHostEntityAsync(entity.HostId);
+        HostEntity? host;
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var hostService = scope.ServiceProvider.GetRequiredService<IHostService>();
+            host = await hostService.GetHostEntityAsync(entity.HostId);
+        }
         if (host == null) return (false, "Host not found");
 
         try
