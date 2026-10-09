@@ -461,4 +461,52 @@ export interface RandomizePortResult {
   details?: string;
 }
 
+export interface GeoLocationInfo {
+  publicIp?: string;
+  country?: string;
+  countryCode?: string;
+  city?: string;
+  region?: string;
+  isp?: string;
+  org?: string;
+  asn?: string;
+  latitude?: number;
+  longitude?: number;
+  flagEmoji?: string;
+}
+
+export interface IpAddressDetail {
+  address: string;
+  prefixLength: number;
+  cidr: string;
+  netmask?: string;
+  network?: string;
+  broadcast?: string;
+  rangeStart?: string;
+  rangeEnd?: string;
+  totalHosts: number;
+  scope: string;
+  family: 'ipv4' | 'ipv6' | string;
+}
+
+export interface NetworkInterfaceDetail {
+  name: string;
+  type: string;
+  state: string;
+  mtu: number;
+  mac?: string;
+  ipv4: IpAddressDetail[];
+  ipv6: IpAddressDetail[];
+  flags: string[];
+}
+
+export interface HostNetworkInfo {
+  hostId: string;
+  geo: GeoLocationInfo;
+  interfaces: NetworkInterfaceDetail[];
+  defaultGateway?: string;
+  dnsServers: string[];
+  checkedAt: string;
+}
+
 

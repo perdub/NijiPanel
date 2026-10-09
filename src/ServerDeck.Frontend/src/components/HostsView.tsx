@@ -24,12 +24,14 @@ import {
   Play,
   LayoutList,
   LayoutGrid,
-  Compass
+  Compass,
+  Network
 } from 'lucide-react';
-import { Host, HostStats, HostMetricsHistory, BenchmarkResult } from '../types';
+import { Host, HostStats, HostMetricsHistory, BenchmarkResult, HostNetworkInfo } from '../types';
 import { api } from '../api';
 import { DoritoLogo } from './DoritoLogo';
 import { SparklineChart } from './SparklineChart';
+import { NetworkInspectorModal } from './NetworkInspectorModal';
 
 interface HostsViewProps {
   hosts: Host[];
@@ -74,6 +76,37 @@ export const HostsView: React.FC<HostsViewProps> = ({
   const [hardeningHostId, setHardeningHostId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Network Inspector states
+  const [networkInspectorOpen, setNetworkInspectorOpen] = useState(false);
+  const [networkInspectorHost, setNetworkInspectorHost] = useState<{ id?: string; name: string; host: string } | null>(null);
+  const [formTestingNetwork, setFormTestingNetwork] = useState(false);
+  const [formNetworkData, setFormNetworkData] = useState<HostNetworkInfo | null>(null);
+
+  const handleInspectFormNetwork = async () => {
+    if (!formHost.trim()) {
+      alert('Please specify host IP or domain first.');
+      return;
+    }
+    setFormTestingNetwork(true);
+    try {
+      const data = await api.hosts.inspectNetwork({
+        host: formHost,
+        port: formPort,
+        username: formUsername,
+        authType: formAuthType,
+        credential: formCredential,
+        passphrase: formPassphrase,
+      });
+      setFormNetworkData(data);
+      setNetworkInspectorHost({ name: formName || formHost, host: formHost });
+      setNetworkInspectorOpen(true);
+    } catch (err: any) {
+      alert(`Network inspection failed: ${err.message}`);
+    } finally {
+      setFormTestingNetwork(false);
+    }
+  };
 
   const handleRandomizePort = async (host: Host) => {
     if (!confirm(`Harden host '${host.name}' by changing SSH port ${host.port} to a random high port (20000-59000)?\n\nNijiPanel will test sshd syntax ('sshd -t'), open the new port in UFW/iptables, and reload SSH.`)) {
@@ -467,6 +500,17 @@ export const HostsView: React.FC<HostsViewProps> = ({
                             <FolderTree className="w-3.5 h-3.5" />
                           </button>
                           <button
+                            onClick={() => {
+                              setFormNetworkData(null);
+                              setNetworkInspectorHost({ id: host.id, name: host.name, host: host.host });
+                              setNetworkInspectorOpen(true);
+                            }}
+                            className="p-1 rounded text-carbon-400 hover:text-cyan-400 hover:bg-carbon-800"
+                            title="Inspect Network Topology & GeoIP"
+                          >
+                            <Network className="w-3.5 h-3.5" />
+                          </button>
+                          <button
                             onClick={() => handleRandomizePort(host)}
                             disabled={hardeningHostId === host.id}
                             className="p-1 rounded text-carbon-400 hover:text-dorito-400 hover:bg-carbon-800 disabled:opacity-50"
@@ -540,6 +584,17 @@ export const HostsView: React.FC<HostsViewProps> = ({
                       title="Refresh status"
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-dorito-500' : ''}`} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFormNetworkData(null);
+                        setNetworkInspectorHost({ id: host.id, name: host.name, host: host.host });
+                        setNetworkInspectorOpen(true);
+                      }}
+                      className="p-1.5 rounded-lg text-carbon-400 hover:text-cyan-400 hover:bg-carbon-800 transition-colors"
+                      title="Inspect Network Topology & GeoIP"
+                    >
+                      <Network className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => handleRandomizePort(host)}
@@ -699,7 +754,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
               </div>
 
               {/* Navigation Action Buttons: Carbon Style */}
-              <div className="grid grid-cols-5 gap-1.5 pt-1 font-mono">
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 pt-1 font-mono">
                 <button
                   onClick={() => {
                     onSelectHost(host.id);
@@ -746,6 +801,19 @@ export const HostsView: React.FC<HostsViewProps> = ({
                 >
                   <Terminal className="w-3.5 h-3.5 text-emerald-400" />
                   <span>SSH</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setFormNetworkData(null);
+                    setNetworkInspectorHost({ id: host.id, name: host.name, host: host.host });
+                    setNetworkInspectorOpen(true);
+                  }}
+                  className="flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-xs font-medium text-carbon-200 hover:text-cyan-400 hover:border-cyan-500/40 transition-colors"
+                  title="Network Topology & GeoIP Inspector"
+                >
+                  <Network className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Net</span>
                 </button>
 
                 <button
@@ -968,21 +1036,34 @@ export const HostsView: React.FC<HostsViewProps> = ({
                 </div>
               )}
 
-              <div className="flex justify-end gap-3 pt-3">
+              <div className="flex items-center justify-between gap-3 pt-3">
                 <button
                   type="button"
-                  onClick={() => setAddModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-carbon-850 text-carbon-300 hover:bg-carbon-800 text-sm font-medium transition-colors font-mono"
+                  onClick={handleInspectFormNetwork}
+                  disabled={formTestingNetwork || !formHost}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-carbon-850 hover:bg-carbon-800 text-cyan-400 border border-carbon-700 text-xs font-mono transition-colors disabled:opacity-50"
+                  title="Probe network interfaces and GeoIP before saving"
                 >
-                  Cancel
+                  <Network className={`w-3.5 h-3.5 ${formTestingNetwork ? 'animate-spin' : ''}`} />
+                  <span>{formTestingNetwork ? 'Probing...' : 'Test Network & GeoIP'}</span>
                 </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-5 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-sm transition-colors disabled:opacity-50 shadow-md shadow-dorito-500/20"
-                >
-                  {submitting ? 'Saving...' : editHost ? 'Save Changes' : 'Add Host'}
-                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAddModalOpen(false)}
+                    className="px-4 py-2 rounded-xl bg-carbon-850 text-carbon-300 hover:bg-carbon-800 text-sm font-medium transition-colors font-mono"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="px-5 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-sm transition-colors disabled:opacity-50 shadow-md shadow-dorito-500/20"
+                  >
+                    {submitting ? 'Saving...' : editHost ? 'Save Changes' : 'Add Host'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -1156,6 +1237,16 @@ export const HostsView: React.FC<HostsViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Network & GeoIP Inspector Modal */}
+      <NetworkInspectorModal
+        isOpen={networkInspectorOpen}
+        onClose={() => setNetworkInspectorOpen(false)}
+        hostId={networkInspectorHost?.id}
+        hostName={networkInspectorHost?.name}
+        hostAddress={networkInspectorHost?.host}
+        initialNetworkInfo={formNetworkData}
+      />
     </div>
   );
 };

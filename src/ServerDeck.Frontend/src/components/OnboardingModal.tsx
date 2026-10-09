@@ -16,11 +16,13 @@ import {
   ShieldCheck,
   AlertCircle,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Network
 } from 'lucide-react';
-import { MasterKey, Host } from '../types';
+import { MasterKey, Host, HostNetworkInfo } from '../types';
 import { api } from '../api';
 import { DoritoLogo } from './DoritoLogo';
+import { NetworkInspectorModal } from './NetworkInspectorModal';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -56,6 +58,35 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [isSubmittingHost, setIsSubmittingHost] = useState(false);
   const [hostSuccess, setHostSuccess] = useState<string | null>(null);
   const [hostError, setHostError] = useState<string | null>(null);
+
+  // Network Inspection states
+  const [isInspectingNetwork, setIsInspectingNetwork] = useState(false);
+  const [inspectedNetwork, setInspectedNetwork] = useState<HostNetworkInfo | null>(null);
+  const [networkModalOpen, setNetworkModalOpen] = useState(false);
+
+  const handleInspectNetwork = async () => {
+    if (!hostAddress.trim()) {
+      setHostError('Please enter a host IP address or domain first.');
+      return;
+    }
+    setHostError(null);
+    setIsInspectingNetwork(true);
+    try {
+      const data = await api.hosts.inspectNetwork({
+        host: hostAddress,
+        port: hostPort,
+        username: hostUsername,
+        authType: hostAuthType,
+        credential: hostAuthType === 'password' ? hostPassword : '',
+      });
+      setInspectedNetwork(data);
+      setNetworkModalOpen(true);
+    } catch (err: any) {
+      setHostError(`Network inspection failed: ${err.message}`);
+    } finally {
+      setIsInspectingNetwork(false);
+    }
+  };
 
   // Step 3: Provisioning Stack state
   const [bootstrapEnabled, setBootstrapEnabled] = useState(true);
@@ -454,6 +485,39 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 </label>
               </div>
 
+              {/* Inline Network Inspection Preview Card */}
+              {inspectedNetwork && (
+                <div className="p-3 rounded-xl bg-[#0c0d10] border border-carbon-700/80 space-y-2 font-mono">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-carbon-800 border border-carbon-700 text-dorito-400 font-bold">
+                        {inspectedNetwork.geo?.countryCode || 'NET'}
+                      </span>
+                      <span className="text-white text-xs font-semibold">
+                        {inspectedNetwork.geo?.city ? `${inspectedNetwork.geo.city}, ` : ''}{inspectedNetwork.geo?.country || 'Detected Location'}
+                      </span>
+                      {inspectedNetwork.geo?.isp && (
+                        <span className="text-[10px] text-carbon-400 hidden sm:inline">
+                          • {inspectedNetwork.geo.isp}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setNetworkModalOpen(true)}
+                      className="text-[11px] text-dorito-400 hover:text-white underline"
+                    >
+                      View All Interfaces ({inspectedNetwork.interfaces.length}) →
+                    </button>
+                  </div>
+                  <div className="text-[11px] text-carbon-400 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span>Public IP: <strong className="text-dorito-400">{inspectedNetwork.geo?.publicIp || hostAddress}</strong></span>
+                    {inspectedNetwork.defaultGateway && <span>Gateway: <strong className="text-carbon-200">{inspectedNetwork.defaultGateway}</strong></span>}
+                    <span>Devices: <strong className="text-emerald-400">{inspectedNetwork.interfaces.map(i => i.name).join(', ')}</strong></span>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-between items-center pt-3">
                 <button
                   type="button"
@@ -467,10 +531,21 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    onClick={handleInspectNetwork}
+                    disabled={isInspectingNetwork || !hostAddress}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-carbon-850 hover:bg-carbon-800 text-cyan-400 border border-carbon-700 text-xs font-mono transition-colors disabled:opacity-50"
+                    title="Probe target host network interfaces & GeoIP before saving"
+                  >
+                    <Network className={`w-3.5 h-3.5 ${isInspectingNetwork ? 'animate-spin' : ''}`} />
+                    <span>{isInspectingNetwork ? 'Probing...' : 'Test Network & GeoIP'}</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setCurrentStep(3)}
                     className="text-carbon-400 hover:text-white text-xs underline px-2"
                   >
-                    Skip adding server now
+                    Skip
                   </button>
 
                   <button
@@ -712,6 +787,15 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Network & GeoIP Inspector Modal */}
+      <NetworkInspectorModal
+        isOpen={networkModalOpen}
+        onClose={() => setNetworkModalOpen(false)}
+        hostName={hostName || 'Target Server'}
+        hostAddress={hostAddress}
+        initialNetworkInfo={inspectedNetwork}
+      />
     </div>
   );
 };

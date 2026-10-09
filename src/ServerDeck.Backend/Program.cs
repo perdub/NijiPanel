@@ -31,6 +31,7 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IBenchmarkService, BenchmarkService>();
 builder.Services.AddScoped<IFirewallService, FirewallService>();
 builder.Services.AddSingleton<IPasskeyService, PasskeyService>();
+builder.Services.AddScoped<IHostNetworkService, HostNetworkService>();
 
 var jwtSecret = builder.Configuration["JWT_SECRET"];
 if (string.IsNullOrWhiteSpace(jwtSecret))

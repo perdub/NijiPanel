@@ -16,6 +16,7 @@ public class HostsController : ControllerBase
     private readonly IBenchmarkService _benchmarkService;
     private readonly ISettingsService _settingsService;
     private readonly INotificationService _notificationService;
+    private readonly IHostNetworkService _networkService;
     private readonly ILogger<HostsController> _logger;
 
     public HostsController(
@@ -25,6 +26,7 @@ public class HostsController : ControllerBase
         IBenchmarkService benchmarkService,
         ISettingsService settingsService,
         INotificationService notificationService,
+        IHostNetworkService networkService,
         ILogger<HostsController> logger)
     {
         _hostService = hostService;
@@ -33,6 +35,7 @@ public class HostsController : ControllerBase
         _benchmarkService = benchmarkService;
         _settingsService = settingsService;
         _notificationService = notificationService;
+        _networkService = networkService;
         _logger = logger;
     }
 
@@ -201,6 +204,46 @@ public class HostsController : ControllerBase
         }
         catch (Exception ex)
         {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("{id}/network")]
+    public async Task<ActionResult<HostNetworkInfoDto>> GetHostNetwork(string id)
+    {
+        var host = await _hostService.GetHostEntityAsync(id);
+        if (host == null) return NotFound(new { error = "Host not found" });
+
+        try
+        {
+            var info = await _networkService.GetHostNetworkInfoAsync(host);
+            return Ok(info);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to retrieve network info for host {HostId}", id);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("inspect-network")]
+    public async Task<ActionResult<HostNetworkInfoDto>> InspectNetwork([FromBody] InspectNetworkRequest request)
+    {
+        try
+        {
+            var info = await _networkService.InspectNetworkAsync(
+                request.Host,
+                request.Port,
+                request.Username,
+                request.AuthType,
+                request.Credential,
+                request.Passphrase
+            );
+            return Ok(info);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to inspect network for host {Host}", request.Host);
             return BadRequest(new { error = ex.Message });
         }
     }

@@ -42,7 +42,8 @@ import {
   PackageUpdateCheckResult,
   PackageUpgradeResult,
   LiveSocket,
-  RandomizePortResult
+  RandomizePortResult,
+  HostNetworkInfo
 } from './types';
 
 const API_BASE = '/api';
@@ -134,6 +135,19 @@ export const api = {
       request<RandomizePortResult>(`/hosts/${id}/randomize-port`, {
         method: 'POST',
         body: JSON.stringify({ targetPort }),
+      }),
+    getNetwork: (id: string) => request<HostNetworkInfo>(`/hosts/${id}/network`),
+    inspectNetwork: (data: {
+      host: string;
+      port: number;
+      username: string;
+      authType: string;
+      credential?: string;
+      passphrase?: string;
+    }) =>
+      request<HostNetworkInfo>('/hosts/inspect-network', {
+        method: 'POST',
+        body: JSON.stringify(data),
       }),
   },
   docker: {
