@@ -58,11 +58,11 @@ public class HostExtrasController : ControllerBase
     }
 
     [HttpGet("ports/live-sockets")]
-    public async Task<ActionResult<List<LiveSocketDto>>> GetLiveSockets(string hostId)
+    public async Task<ActionResult<List<LiveSocketDto>>> GetLiveSockets(string hostId, [FromQuery] bool refresh = false)
     {
         try
         {
-            var sockets = await _extrasService.GetLiveSocketsAsync(hostId);
+            var sockets = await _extrasService.GetLiveSocketsAsync(hostId, refresh);
             return Ok(sockets);
         }
         catch (KeyNotFoundException ex)

@@ -16,7 +16,7 @@
   {
     "key": "System.LiveSockets",
     "category": "System",
-    "command": "ss -tulpn 2>/dev/null",
+    "command": "sudo -n ss -tulpn 2>/dev/null || ss -tulpn 2>/dev/null || netstat -tulpn 2>/dev/null",
     "description": "Inspect open listening TCP and UDP sockets with PID and process names",
     "timeoutSeconds": 15
   },

@@ -69,48 +69,45 @@ jobs:
             -p:PublishTrimmed=false \
             -o dist/linux-arm64
 
-      - name: Package & Archive Binaries
+      - name: Prepare Standalone Executables
         run: |
           # 1. Linux x64
           mv dist/linux-x64/NijiPanel.Backend dist/linux-x64/nijipanel
           chmod +x dist/linux-x64/nijipanel
-          tar -czvf nijipanel-linux-x64.tar.gz -C dist/linux-x64 nijipanel wwwroot commands.json
 
           # 2. Linux ARM64
           mv dist/linux-arm64/NijiPanel.Backend dist/linux-arm64/nijipanel
           chmod +x dist/linux-arm64/nijipanel
-          tar -czvf nijipanel-linux-arm64.tar.gz -C dist/linux-arm64 nijipanel wwwroot commands.json
 
           # 3. Windows x64 (.exe)
           mv dist/win-x64/NijiPanel.Backend.exe dist/win-x64/nijipanel.exe
-          cd dist/win-x64 && zip -r -9 ../../nijipanel-windows-x64.zip nijipanel.exe wwwroot commands.json && cd ../..
 
       - name: Upload Binary Artifact (Windows x64)
         uses: actions/upload-artifact@v4
         with:
           name: nijipanel-windows-x64
-          path: nijipanel-windows-x64.zip
+          path: dist/win-x64/nijipanel.exe
 
       - name: Upload Binary Artifact (Linux x64)
         uses: actions/upload-artifact@v4
         with:
           name: nijipanel-linux-x64
-          path: nijipanel-linux-x64.tar.gz
+          path: dist/linux-x64/nijipanel
 
       - name: Upload Binary Artifact (Linux ARM64)
         uses: actions/upload-artifact@v4
         with:
           name: nijipanel-linux-arm64
-          path: nijipanel-linux-arm64.tar.gz
+          path: dist/linux-arm64/nijipanel
 
       - name: Release to GitHub Releases
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            nijipanel-windows-x64.zip
-            nijipanel-linux-x64.tar.gz
-            nijipanel-linux-arm64.tar.gz
+            dist/win-x64/nijipanel.exe
+            dist/linux-x64/nijipanel
+            dist/linux-arm64/nijipanel
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

@@ -20,7 +20,7 @@ const TAB_TITLES: Record<string, { title: string; subtitle: string }> = {
   files: { title: 'File Explorer', subtitle: 'SFTP browser, disk usage treemap & public share links' },
   cron: { title: 'Cron Scheduler', subtitle: 'Automated crontab entries and script execution over SSH' },
   terminal: { title: 'Web Terminal', subtitle: 'Direct interactive pseudo-terminal session' },
-  ports: { title: 'Port Registry & Sockets', subtitle: 'Live ss -tulpn socket inspector & 1-click SSH tunnels' },
+  ports: { title: 'Active Ports & Sockets', subtitle: 'Live listening ports (ss -tulpn), socket inspection & 1-click CLI SSH tunnels' },
   firewall: { title: 'Firewall & Fail2ban', subtitle: 'UFW packet filter rules & brute-force defense' },
   utils: { title: 'Utilities & Generators', subtitle: 'Credential generators and host provisioning commands' },
 };

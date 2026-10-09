@@ -63,7 +63,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'files', label: 'File Manager', icon: FolderTree, requiresHost: true },
     { id: 'cron', label: 'Cron', icon: Clock, requiresHost: true },
     { id: 'terminal', label: 'Terminal', icon: Terminal, requiresHost: true },
-    { id: 'ports', label: 'Port Registry', icon: Network, requiresHost: true },
+    { id: 'ports', label: 'Active Ports', icon: Network, requiresHost: true },
     { id: 'firewall', label: 'Firewall', icon: Shield, requiresHost: true },
     { id: 'utils', label: 'Utils', icon: Wrench, requiresHost: false },
   ];

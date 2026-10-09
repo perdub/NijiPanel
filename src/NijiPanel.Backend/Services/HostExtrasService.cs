@@ -13,7 +13,7 @@ public interface IHostExtrasService
     Task<HostNoteDto?> GetNoteAsync(string hostId);
     Task<HostNoteDto> SaveNoteAsync(string hostId, SaveHostNoteRequest request);
 
-    Task<List<LiveSocketDto>> GetLiveSocketsAsync(string hostId);
+    Task<List<LiveSocketDto>> GetLiveSocketsAsync(string hostId, bool forceRefresh = false);
 }
 
 public class HostExtrasService : IHostExtrasService
@@ -22,17 +22,20 @@ public class HostExtrasService : IHostExtrasService
     private readonly IHostService _hostService;
     private readonly ISshConnectionManager _sshManager;
     private readonly ICommandRegistry _cmdRegistry;
+    private readonly ICacheService _cacheService;
 
     public HostExtrasService(
         DatabaseContext dbContext,
         IHostService hostService,
         ISshConnectionManager sshManager,
-        ICommandRegistry cmdRegistry)
+        ICommandRegistry cmdRegistry,
+        ICacheService cacheService)
     {
         _dbContext = dbContext;
         _hostService = hostService;
         _sshManager = sshManager;
         _cmdRegistry = cmdRegistry;
+        _cacheService = cacheService;
     }
 
     public async Task<List<HostPortDto>> GetPortsAsync(string hostId)
@@ -135,69 +138,115 @@ public class HostExtrasService : IHostExtrasService
         return new HostNoteDto(id, hostId, request.Title ?? "Notes", request.Content ?? "", now);
     }
 
-    public async Task<List<LiveSocketDto>> GetLiveSocketsAsync(string hostId)
+    public async Task<List<LiveSocketDto>> GetLiveSocketsAsync(string hostId, bool forceRefresh = false)
     {
-        var host = await _hostService.GetHostEntityAsync(hostId);
-        if (host == null) throw new KeyNotFoundException($"Host {hostId} not found");
-
-        var cmd = _cmdRegistry.GetCommand("System.LiveSockets");
-        var timeout = _cmdRegistry.GetTimeout("System.LiveSockets", 15);
-        var res = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
-        var output = res.Output ?? "";
-
-        var list = new List<LiveSocketDto>();
-        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        foreach (var line in lines)
+        var cacheKey = $"host:{hostId}:live-sockets";
+        if (forceRefresh)
         {
-            if (line.StartsWith("Netid") || line.StartsWith("State")) continue;
-
-            var parts = Regex.Split(line, @"\s+");
-            if (parts.Length < 5) continue;
-
-            var protoRaw = parts[0].ToLowerInvariant();
-            if (!protoRaw.StartsWith("tcp") && !protoRaw.StartsWith("udp")) continue;
-
-            var proto = protoRaw.StartsWith("tcp") ? "TCP" : "UDP";
-            var state = parts[1];
-            var localEndpoint = parts[4];
-
-            var lastColon = localEndpoint.LastIndexOf(':');
-            if (lastColon <= 0) continue;
-
-            var addr = localEndpoint[..lastColon].Trim('[', ']');
-            var portStr = localEndpoint[(lastColon + 1)..];
-
-            if (!int.TryParse(portStr, out var port)) continue;
-
-            // Extract process name & pid if available
-            string? procName = null;
-            int? pid = null;
-
-            var m = Regex.Match(line, @"""([^""]+)"",pid=(\d+)");
-            if (m.Success)
-            {
-                procName = m.Groups[1].Value;
-                if (int.TryParse(m.Groups[2].Value, out var parsedPid))
-                {
-                    pid = parsedPid;
-                }
-            }
-
-            list.Add(new LiveSocketDto(
-                proto,
-                state,
-                addr,
-                port,
-                procName,
-                pid,
-                line
-            ));
+            _cacheService.Remove(cacheKey);
         }
 
-        return list
-            .OrderBy(s => s.Port)
-            .ThenBy(s => s.Protocol)
-            .ToList();
+        return await _cacheService.GetOrCreateAsync(cacheKey, async () =>
+        {
+            var host = await _hostService.GetHostEntityAsync(hostId);
+            if (host == null) throw new KeyNotFoundException($"Host {hostId} not found");
+
+            var cmd = _cmdRegistry.GetCommand("System.LiveSockets");
+            var timeout = _cmdRegistry.GetTimeout("System.LiveSockets", 15);
+            var res = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
+            var output = res.Output ?? "";
+
+            var list = new List<LiveSocketDto>();
+            var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            foreach (var line in lines)
+            {
+                if (line.StartsWith("Netid") || line.StartsWith("State") || line.StartsWith("Active Internet") || line.StartsWith("Proto")) continue;
+
+                var parts = Regex.Split(line, @"\s+");
+                if (parts.Length < 4) continue;
+
+                var protoRaw = parts[0].ToLowerInvariant();
+                if (!protoRaw.StartsWith("tcp") && !protoRaw.StartsWith("udp")) continue;
+
+                var proto = protoRaw.StartsWith("tcp") ? "TCP" : "UDP";
+
+                // Locate the local endpoint column (ends with :<port>)
+                string? localEndpoint = null;
+                string state = "LISTEN";
+
+                for (int i = 1; i < parts.Length; i++)
+                {
+                    var p = parts[i];
+                    if (Regex.IsMatch(p, @":\d+$"))
+                    {
+                        localEndpoint = p;
+                        if (i == 4 && parts.Length > 1)
+                        {
+                            state = parts[1];
+                        }
+                        else if (i == 3 && parts.Length > 5)
+                        {
+                            state = parts[5];
+                        }
+                        break;
+                    }
+                }
+
+                if (string.IsNullOrEmpty(localEndpoint)) continue;
+
+                var lastColon = localEndpoint.LastIndexOf(':');
+                if (lastColon < 0) continue;
+
+                var addr = lastColon == 0 ? "*" : localEndpoint[..lastColon].Trim('[', ']');
+                if (string.IsNullOrEmpty(addr)) addr = "*";
+                var portStr = localEndpoint[(lastColon + 1)..];
+
+                if (!int.TryParse(portStr, out var port)) continue;
+
+                // Extract process name & pid if available
+                string? procName = null;
+                int? pid = null;
+
+                // 1. ss format: users:(("sshd",pid=1038,fd=3))
+                var m = Regex.Match(line, @"""([^""]+)"",pid=(\d+)");
+                if (m.Success)
+                {
+                    procName = m.Groups[1].Value;
+                    if (int.TryParse(m.Groups[2].Value, out var parsedPid))
+                    {
+                        pid = parsedPid;
+                    }
+                }
+                else
+                {
+                    // 2. netstat format: 1038/sshd
+                    var mNetstat = Regex.Match(line, @"(\d+)\/([^\s]+)");
+                    if (mNetstat.Success)
+                    {
+                        if (int.TryParse(mNetstat.Groups[1].Value, out var parsedPid))
+                        {
+                            pid = parsedPid;
+                        }
+                        procName = mNetstat.Groups[2].Value;
+                    }
+                }
+
+                list.Add(new LiveSocketDto(
+                    proto,
+                    state,
+                    addr,
+                    port,
+                    procName,
+                    pid,
+                    line
+                ));
+            }
+
+            return list
+                .OrderBy(s => s.Port)
+                .ThenBy(s => s.Protocol)
+                .ToList();
+        }, TimeSpan.FromSeconds(5));
     }
 }

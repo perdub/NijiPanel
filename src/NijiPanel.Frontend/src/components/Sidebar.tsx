@@ -157,7 +157,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Cpu,
       items: [
         { id: 'services', label: 'Services & Systemd', icon: Cpu, requiresHost: true },
-        { id: 'ports', label: 'Port Registry', icon: Network, requiresHost: true },
+        { id: 'ports', label: 'Active Ports', icon: Network, requiresHost: true },
         { id: 'firewall', label: 'Firewall Sentinel', icon: Shield, requiresHost: true },
         { id: 'cron', label: 'Cron Tasks', icon: Clock, requiresHost: true },
       ],

@@ -308,7 +308,8 @@ export const api = {
       }),
     stopTunnel: (hostId: string, tunnelId: string) =>
       request<{ success: boolean }>(`/hosts/${hostId}/tunnels/${tunnelId}/stop`, { method: 'POST' }),
-    liveSockets: (hostId: string) => request<LiveSocket[]>(`/hosts/${hostId}/ports/live-sockets`),
+    liveSockets: (hostId: string, refresh = false) =>
+      request<LiveSocket[]>(`/hosts/${hostId}/ports/live-sockets${refresh ? '?refresh=true' : ''}`),
   },
   utils: {
     generatePassword: (data: { length?: number; includeSymbols?: boolean; includeNumbers?: boolean; includeUppercase?: boolean }) =>
