@@ -20,20 +20,73 @@ import { api, clearToken, getToken } from './api';
 import { Host, MasterKey, NotificationItem } from './types';
 import { Loader2 } from 'lucide-react';
 
+const VALID_TABS = [
+  'hosts', 'services', 'appstore', 'docker', 'compose',
+  'files', 'terminal', 'cron', 'ports', 'firewall', 'utils'
+];
+
+interface RouteInfo {
+  tab: string;
+  hostId: string | null;
+  filePath: string | null;
+  settingsOpen: boolean;
+}
+
+function parseCurrentRoute(): RouteInfo {
+  const path = window.location.pathname.replace(/^\/+/, '').split('/')[0].toLowerCase();
+  const searchParams = new URLSearchParams(window.location.search);
+  const hostId = searchParams.get('host');
+  const filePath = searchParams.get('path');
+  const settingsOpen = path === 'settings' || searchParams.get('modal') === 'settings';
+
+  let tab = 'hosts';
+  if (VALID_TABS.includes(path)) {
+    tab = path;
+  }
+
+  return { tab, hostId, filePath, settingsOpen };
+}
+
+function syncUrlToBrowser(tab: string, hostId: string | null, filePath: string | null, settingsOpen: boolean, replace = false) {
+  const params = new URLSearchParams();
+  if (hostId && tab !== 'hosts' && tab !== 'utils') {
+    params.set('host', hostId);
+  }
+  if (filePath && tab === 'files') {
+    params.set('path', filePath);
+  }
+  if (settingsOpen) {
+    params.set('modal', 'settings');
+  }
+
+  const query = params.toString() ? `?${params.toString()}` : '';
+  const newPath = `/${tab}${query}`;
+  const currentFull = `${window.location.pathname}${window.location.search}`;
+
+  if (currentFull !== newPath) {
+    if (replace) {
+      window.history.replaceState({ tab, hostId, filePath, settingsOpen }, '', newPath);
+    } else {
+      window.history.pushState({ tab, hostId, filePath, settingsOpen }, '', newPath);
+    }
+  }
+}
+
 export const App: React.FC = () => {
   const [authChecked, setAuthChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSetup, setIsSetup] = useState(true);
   const [username, setUsername] = useState<string | undefined>();
 
-  // Dashboard states
-  const [activeTab, setActiveTab] = useState('hosts');
+  // Dashboard states initialized from URL
+  const initialRoute = parseCurrentRoute();
+  const [activeTab, setActiveTab] = useState(initialRoute.tab);
   const [hosts, setHosts] = useState<Host[]>([]);
-  const [selectedHostId, setSelectedHostId] = useState<string | null>(null);
+  const [selectedHostId, setSelectedHostId] = useState<string | null>(initialRoute.hostId);
   const [masterKey, setMasterKey] = useState<MasterKey | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(initialRoute.settingsOpen);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
-  const [fileToEditPath, setFileToEditPath] = useState<string | null>(null);
+  const [fileToEditPath, setFileToEditPath] = useState<string | null>(initialRoute.filePath);
 
   // Sidebar states
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -120,6 +173,29 @@ export const App: React.FC = () => {
     }
   };
 
+  const navigateTo = (tab: string, hostId?: string, filePath?: string | null) => {
+    const nextHostId = hostId !== undefined ? hostId : selectedHostId;
+    const nextFilePath = filePath !== undefined ? filePath : fileToEditPath;
+    setActiveTab(tab);
+    if (hostId !== undefined) {
+      setSelectedHostId(hostId);
+    }
+    if (filePath !== undefined) {
+      setFileToEditPath(filePath);
+    }
+    syncUrlToBrowser(tab, nextHostId, nextFilePath, settingsOpen, false);
+  };
+
+  const handleSelectHost = (id: string) => {
+    setSelectedHostId(id);
+    syncUrlToBrowser(activeTab, id, fileToEditPath, settingsOpen, false);
+  };
+
+  const handleOpenSettings = (open: boolean) => {
+    setSettingsOpen(open);
+    syncUrlToBrowser(activeTab, selectedHostId, fileToEditPath, open, false);
+  };
+
   const loadData = async () => {
     try {
       const [hostsData, keyData] = await Promise.all([
@@ -129,8 +205,14 @@ export const App: React.FC = () => {
       setHosts(hostsData);
       setMasterKey(keyData);
 
-      if (hostsData.length > 0 && !selectedHostId) {
-        setSelectedHostId(hostsData[0].id);
+      if (hostsData.length > 0) {
+        if (selectedHostId && hostsData.some((h) => h.id === selectedHostId)) {
+          syncUrlToBrowser(activeTab, selectedHostId, fileToEditPath, settingsOpen, true);
+        } else {
+          const defaultHostId = hostsData[0].id;
+          setSelectedHostId(defaultHostId);
+          syncUrlToBrowser(activeTab, defaultHostId, fileToEditPath, settingsOpen, true);
+        }
       } else if (hostsData.length === 0) {
         try {
           const completed = localStorage.getItem('nijipanel_onboarding_completed');
@@ -138,6 +220,7 @@ export const App: React.FC = () => {
             setOnboardingOpen(true);
           }
         } catch {}
+        syncUrlToBrowser(activeTab, null, fileToEditPath, settingsOpen, true);
       }
     } catch (err) {
       console.error('Error loading fleet data', err);
@@ -151,7 +234,22 @@ export const App: React.FC = () => {
       setIsAuthenticated(false);
     };
     window.addEventListener('nijipanel_unauthorized', handleUnauthorized);
-    return () => window.removeEventListener('nijipanel_unauthorized', handleUnauthorized);
+
+    const handlePopState = () => {
+      const route = parseCurrentRoute();
+      setActiveTab(route.tab);
+      if (route.hostId !== null) {
+        setSelectedHostId(route.hostId);
+      }
+      setFileToEditPath(route.filePath);
+      setSettingsOpen(route.settingsOpen);
+    };
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('nijipanel_unauthorized', handleUnauthorized);
+      window.removeEventListener('popstate', handlePopState);
+    };
   }, []);
 
   useEffect(() => {
@@ -201,19 +299,19 @@ export const App: React.FC = () => {
 
   const handleEditComposeFile = (path: string) => {
     setFileToEditPath(path);
-    setActiveTab('files');
+    navigateTo('files', selectedHostId || undefined, path);
   };
 
   return (
     <div className="min-h-screen bg-black text-carbon-100 flex font-sans">
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={(tab) => navigateTo(tab)}
         hosts={hosts}
         selectedHostId={selectedHostId}
-        setSelectedHostId={setSelectedHostId}
-        onOpenAddHost={() => setActiveTab('hosts')}
-        onOpenSettings={() => setSettingsOpen(true)}
+        setSelectedHostId={handleSelectHost}
+        onOpenAddHost={() => navigateTo('hosts')}
+        onOpenSettings={() => handleOpenSettings(true)}
         onOpenNotifications={() => setNotificationDrawerOpen(true)}
         unreadCount={unreadCount}
         onLogout={handleLogout}
@@ -236,7 +334,7 @@ export const App: React.FC = () => {
           activeTab={activeTab}
           selectedHost={selectedHost}
           onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
-          onOpenAddHost={() => setActiveTab('hosts')}
+          onOpenAddHost={() => navigateTo('hosts')}
           onRefreshData={loadData}
           onOpenOnboarding={() => setOnboardingOpen(true)}
         />
@@ -246,8 +344,8 @@ export const App: React.FC = () => {
             <HostsView
               hosts={hosts}
               onRefresh={loadData}
-              onSelectHost={(id) => setSelectedHostId(id)}
-              onOpenTab={(tab) => setActiveTab(tab)}
+              onSelectHost={(id) => handleSelectHost(id)}
+              onOpenTab={(tab, hostId) => navigateTo(tab, hostId)}
               masterPublicKey={masterKey?.publicKey || ''}
               onOpenOnboarding={() => setOnboardingOpen(true)}
             />
@@ -257,14 +355,14 @@ export const App: React.FC = () => {
             <ServicesView
               selectedHost={selectedHost}
               hosts={hosts}
-              onSelectHost={(id) => setSelectedHostId(id)}
+              onSelectHost={(id) => handleSelectHost(id)}
             />
           )}
 
           {activeTab === 'appstore' && (
             <AppStoreView
               selectedHost={selectedHost}
-              onNavigateToCompose={() => setActiveTab('compose')}
+              onNavigateToCompose={() => navigateTo('compose')}
             />
           )}
 
@@ -292,7 +390,7 @@ export const App: React.FC = () => {
             <CronView
               hosts={hosts}
               selectedHost={selectedHost}
-              onSelectHost={(h) => setSelectedHostId(h.id)}
+              onSelectHost={(h) => handleSelectHost(h.id)}
             />
           )}
 
@@ -306,7 +404,7 @@ export const App: React.FC = () => {
 
       <SettingsModal
         isOpen={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        onClose={() => handleOpenSettings(false)}
         masterKey={masterKey}
         onMasterKeyUpdated={(updated) => setMasterKey(updated)}
       />
@@ -316,7 +414,7 @@ export const App: React.FC = () => {
         onClose={() => setOnboardingOpen(false)}
         masterKey={masterKey}
         onHostCreated={loadData}
-        onNavigateTab={(tab) => setActiveTab(tab)}
+        onNavigateTab={(tab) => navigateTo(tab)}
       />
 
       <NotificationDrawer

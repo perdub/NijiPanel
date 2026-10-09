@@ -14,21 +14,33 @@ public class PackageUpdateService : IPackageUpdateService
     private readonly IHostService _hostService;
     private readonly ISshConnectionManager _sshManager;
     private readonly ICommandRegistry _cmdRegistry;
+    private readonly ICacheService _cacheService;
     private readonly ILogger<PackageUpdateService> _logger;
 
     public PackageUpdateService(
         IHostService hostService,
         ISshConnectionManager sshManager,
         ICommandRegistry cmdRegistry,
+        ICacheService cacheService,
         ILogger<PackageUpdateService> logger)
     {
         _hostService = hostService;
         _sshManager = sshManager;
         _cmdRegistry = cmdRegistry;
+        _cacheService = cacheService;
         _logger = logger;
     }
 
     public async Task<PackageUpdateCheckResult> CheckUpdatesAsync(string hostId)
+    {
+        return await _cacheService.GetOrCreateAsync(
+            $"pkg_updates_{hostId}",
+            () => FetchUpdatesInternalAsync(hostId),
+            TimeSpan.FromMinutes(10)
+        );
+    }
+
+    private async Task<PackageUpdateCheckResult> FetchUpdatesInternalAsync(string hostId)
     {
         var host = await _hostService.GetHostEntityAsync(hostId);
         if (host == null) throw new KeyNotFoundException($"Host {hostId} not found");
@@ -152,7 +164,7 @@ public class PackageUpdateService : IPackageUpdateService
 
         _logger.LogInformation("Starting package upgrade on host {HostId}", hostId);
         var res = await _sshManager.RunCommandAsync(host, upgradeScript, timeoutSeconds: timeout);
-
+        _cacheService.Remove($"pkg_updates_{hostId}");
         var success = res.ExitCode == 0;
         return new PackageUpgradeResult(
             success,

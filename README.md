@@ -11,8 +11,14 @@
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind-CSS-38B2AC.svg)](https://tailwindcss.com/)
 [![Style: IBM Carbon](https://img.shields.io/badge/Style-IBM%20Carbon-161616.svg)](https://carbondesignsystem.com/)
+[![Documentation](https://img.shields.io/badge/Docs-GitHub%20Pages-ffd100.svg)](https://perdub.github.io/NijiPanel/)
 
 </div>
+
+> 📖 **Интерактивная Вики и База знаний:**  
+> Полная документация по всем модулям, архитектуре, REST API и дизайн-системе доступна на **[GitHub Pages](https://perdub.github.io/NijiPanel/)** (директория [`docs/`](docs/)).
+>
+> 📝 **Правила контрибьютинга:** Любые изменения функционала требуют обязательного обновления документации в соответствии с [CONTRIBUTING.md](CONTRIBUTING.md) и [docs/CONTRIBUTING_DOCS.md](docs/CONTRIBUTING_DOCS.md).
 
 ---
 

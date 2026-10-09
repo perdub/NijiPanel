@@ -16,19 +16,31 @@ public class FirewallService : IFirewallService
 {
     private readonly ISshConnectionManager _sshManager;
     private readonly ICommandRegistry _cmdRegistry;
+    private readonly ICacheService _cacheService;
     private readonly ILogger<FirewallService> _logger;
 
     public FirewallService(
         ISshConnectionManager sshManager,
         ICommandRegistry cmdRegistry,
+        ICacheService cacheService,
         ILogger<FirewallService> logger)
     {
         _sshManager = sshManager;
         _cmdRegistry = cmdRegistry;
+        _cacheService = cacheService;
         _logger = logger;
     }
 
     public async Task<FirewallStatusDto> GetRulesAsync(HostEntity host)
+    {
+        return await _cacheService.GetOrCreateAsync(
+            $"firewall_rules_{host.Id}",
+            () => FetchRulesInternalAsync(host),
+            TimeSpan.FromSeconds(10)
+        );
+    }
+
+    private async Task<FirewallStatusDto> FetchRulesInternalAsync(HostEntity host)
     {
         var ufwCmd = _cmdRegistry.GetCommand("Firewall.UfwStatus");
         var ufwTimeout = _cmdRegistry.GetTimeout("Firewall.UfwStatus", 15);
@@ -111,6 +123,7 @@ public class FirewallService : IFirewallService
             return new FirewallOperationResult(false, $"Failed to add rule: {error}", output);
         }
 
+        _cacheService.Remove($"firewall_rules_{host.Id}");
         return new FirewallOperationResult(true, "Firewall rule added successfully", output);
     }
 
@@ -129,10 +142,20 @@ public class FirewallService : IFirewallService
             return new FirewallOperationResult(false, $"Failed to delete rule: {error}", output);
         }
 
+        _cacheService.Remove($"firewall_rules_{host.Id}");
         return new FirewallOperationResult(true, $"Rule #{ruleNumber} deleted successfully", output);
     }
 
     public async Task<Fail2banStatusDto> GetFail2banStatusAsync(HostEntity host)
+    {
+        return await _cacheService.GetOrCreateAsync(
+            $"firewall_fail2ban_{host.Id}",
+            () => FetchFail2banInternalAsync(host),
+            TimeSpan.FromSeconds(10)
+        );
+    }
+
+    private async Task<Fail2banStatusDto> FetchFail2banInternalAsync(HostEntity host)
     {
         var checkScript = _cmdRegistry.GetCommand("Firewall.Fail2banStatus");
         var timeout = _cmdRegistry.GetTimeout("Firewall.Fail2banStatus", 15);
@@ -220,9 +243,11 @@ public class FirewallService : IFirewallService
             {
                 return new FirewallOperationResult(false, $"Failed to unban {cleanIp}: {error} {fbErr}", output);
             }
+            _cacheService.Remove($"firewall_fail2ban_{host.Id}");
             return new FirewallOperationResult(true, $"Successfully unbanned IP {cleanIp}", fbOut);
         }
 
+        _cacheService.Remove($"firewall_fail2ban_{host.Id}");
         return new FirewallOperationResult(true, $"Successfully unbanned IP {cleanIp} from {targetJail}", output);
     }
 

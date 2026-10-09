@@ -27,14 +27,25 @@ public class DockerService : IDockerService
 {
     private readonly ISshConnectionManager _sshManager;
     private readonly ICommandRegistry _cmdRegistry;
+    private readonly ICacheService _cacheService;
 
-    public DockerService(ISshConnectionManager sshManager, ICommandRegistry cmdRegistry)
+    public DockerService(ISshConnectionManager sshManager, ICommandRegistry cmdRegistry, ICacheService cacheService)
     {
         _sshManager = sshManager;
         _cmdRegistry = cmdRegistry;
+        _cacheService = cacheService;
     }
 
     public async Task<List<ContainerDto>> GetContainersAsync(HostEntity host)
+    {
+        return await _cacheService.GetOrCreateAsync(
+            $"docker_containers_{host.Id}",
+            () => FetchContainersInternalAsync(host),
+            TimeSpan.FromSeconds(4)
+        );
+    }
+
+    private async Task<List<ContainerDto>> FetchContainersInternalAsync(HostEntity host)
     {
         // Run docker ps -a with json format
         var listCmd = _cmdRegistry.GetCommand("Docker.ListContainers");
@@ -322,6 +333,7 @@ public class DockerService : IDockerService
         var cmd = _cmdRegistry.GetCommand("Docker.ContainerAction", new { action = actionVerb, containerId = safeId });
         var timeout = _cmdRegistry.GetTimeout("Docker.ContainerAction", 30);
         var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
+        _cacheService.RemoveByPrefix($"docker_{host.Id}");
         return (exitCode == 0, output, error);
     }
 
@@ -695,6 +707,15 @@ public class DockerService : IDockerService
 
     public async Task<DockerPrunePreviewResponse> GetPrunePreviewAsync(HostEntity host)
     {
+        return await _cacheService.GetOrCreateAsync(
+            $"docker_prune_preview_{host.Id}",
+            () => FetchPrunePreviewInternalAsync(host),
+            TimeSpan.FromSeconds(15)
+        );
+    }
+
+    private async Task<DockerPrunePreviewResponse> FetchPrunePreviewInternalAsync(HostEntity host)
+    {
         // 1. Run docker system df --format json
         var dfCmd = _cmdRegistry.GetCommand("Docker.PrunePreview");
         var dfTimeout = _cmdRegistry.GetTimeout("Docker.PrunePreview", 15);
@@ -760,6 +781,7 @@ public class DockerService : IDockerService
 
     public async Task<DockerPruneExecuteResponse> ExecutePruneAsync(HostEntity host, DockerPruneExecuteRequest request)
     {
+        _cacheService.RemoveByPrefix($"docker_{host.Id}");
         var cmds = new List<string>();
         if (request.PruneImages) cmds.Add("docker image prune -a -f 2>&1");
         if (request.PruneContainers) cmds.Add("docker container prune -f 2>&1");

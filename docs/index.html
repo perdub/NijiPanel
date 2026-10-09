@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>NijiPanel Documentation | The Drummer of Your Servers</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <meta name="description" content="Полная техническая документация и руководство пользователя NijiPanel — легковесной панели управления серверами на .NET 10 и React.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="assets/dorito-logo.svg">
+  
+  <!-- Fonts: IBM Plex Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Docsify Theme Dark -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify@4/lib/themes/dark.css">
+  
+  <!-- Custom IBM Carbon & Nijika Dorito Theme Overrides -->
+  <style>
+    :root {
+      --theme-color: #ffd100;
+      --theme-color-hover: #ffe600;
+      --bg-base: #0d0e12;
+      --bg-sidebar: #121318;
+      --bg-card: #16171d;
+      --bg-input: #1a1b22;
+      --border-color: #282828;
+      --border-subtle: #212121;
+      --text-main: #f4f4f4;
+      --text-muted: #8d8d8d;
+      --text-heading: #ffffff;
+      --code-bg: #16171d;
+      --accent-dorito: #ffd100;
+      --accent-ribbon: #f43f5e;
+    }
+
+    /* Reset & Typography */
+    body {
+      font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+      background-color: var(--bg-base) !important;
+      color: var(--text-main) !important;
+      font-size: 15px;
+      line-height: 1.65;
+      letter-spacing: -0.01em;
+    }
+
+    code, kbd, pre, samp {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    }
+
+    /* Sharp IBM Carbon 0px corners everywhere */
+    *, *::before, *::after {
+      border-radius: 0 !important;
+    }
+
+    /* Sidebar Styling */
+    .sidebar {
+      background-color: var(--bg-sidebar) !important;
+      border-right: 1px solid var(--border-color) !important;
+      color: var(--text-muted) !important;
+    }
+
+    .sidebar-nav {
+      padding-bottom: 40px;
+    }
+
+    .sidebar-nav ul {
+      margin: 0;
+      padding-left: 0;
+    }
+
+    .sidebar-nav li {
+      margin: 2px 0;
+    }
+
+    .sidebar-nav p {
+      margin: 1.2rem 0 0.4rem 0 !important;
+      font-size: 0.75rem !important;
+      font-weight: 700 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.08em !important;
+      color: #6e6e6e !important;
+      padding-left: 15px;
+    }
+
+    .sidebar-nav a {
+      color: #c6c6c6 !important;
+      font-size: 13.5px !important;
+      padding: 6px 15px 6px 20px !important;
+      display: block !important;
+      transition: all 0.12s ease-in-out !important;
+      border-left: 3px solid transparent !important;
+    }
+
+    .sidebar-nav a:hover {
+      color: #ffffff !important;
+      background-color: #1e1f28 !important;
+      text-decoration: none !important;
+    }
+
+    .sidebar-nav li.active > a {
+      color: var(--accent-dorito) !important;
+      background-color: #1a1b24 !important;
+      border-left: 3px solid var(--accent-dorito) !important;
+      font-weight: 600 !important;
+    }
+
+    /* App Name / Logo in Sidebar */
+    .app-name {
+      padding: 16px 14px 14px 14px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .app-name-link {
+      color: #ffffff !important;
+      font-size: 1.15rem !important;
+      font-weight: 700 !important;
+      letter-spacing: -0.02em !important;
+      text-decoration: none !important;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .app-name-link span.dorito-text {
+      color: var(--accent-dorito);
+    }
+
+    .app-name-link img {
+      width: 28px;
+      height: 28px;
+      filter: drop-shadow(0 0 6px rgba(255, 209, 0, 0.4));
+    }
+
+    .version-tag {
+      font-size: 10px;
+      background: #282828;
+      color: #ffd100;
+      padding: 1px 6px;
+      border: 1px solid #393939;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    /* Search Box */
+    .search {
+      border-bottom: 1px solid var(--border-color) !important;
+      padding: 12px 14px !important;
+      background-color: var(--bg-sidebar) !important;
+    }
+
+    .search input {
+      background-color: var(--bg-input) !important;
+      border: 1px solid var(--border-color) !important;
+      color: #ffffff !important;
+      font-size: 13px !important;
+      padding: 7px 10px !important;
+      outline: none !important;
+      width: 100% !important;
+      transition: border-color 0.15s ease;
+    }
+
+    .search input:focus {
+      border-color: var(--accent-dorito) !important;
+      box-shadow: 0 0 0 1px var(--accent-dorito);
+    }
+
+    .search .matching-post {
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    /* Main Content Area */
+    .content {
+      padding-top: 24px;
+      max-width: 1050px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .markdown-section {
+      max-width: 960px !important;
+      padding: 24px 36px 60px 36px !important;
+      color: #e0e0e0 !important;
+    }
+
+    /* Headings */
+    .markdown-section h1 {
+      color: #ffffff !important;
+      font-weight: 700 !important;
+      font-size: 2.1rem !important;
+      letter-spacing: -0.03em !important;
+      border-bottom: 1px solid var(--border-color) !important;
+      padding-bottom: 12px !important;
+      margin-top: 1.5rem !important;
+      margin-bottom: 1.2rem !important;
+    }
+
+    .markdown-section h2 {
+      color: #ffffff !important;
+      font-weight: 600 !important;
+      font-size: 1.55rem !important;
+      letter-spacing: -0.02em !important;
+      border-bottom: 1px solid var(--border-subtle) !important;
+      padding-bottom: 8px !important;
+      margin-top: 2rem !important;
+      margin-bottom: 1rem !important;
+    }
+
+    .markdown-section h3 {
+      color: #f0f0f0 !important;
+      font-weight: 600 !important;
+      font-size: 1.25rem !important;
+      margin-top: 1.6rem !important;
+      margin-bottom: 0.8rem !important;
+    }
+
+    .markdown-section h4 {
+      color: #ffd100 !important;
+      font-weight: 600 !important;
+      font-size: 1.05rem !important;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* Links */
+    .markdown-section a {
+      color: var(--accent-dorito) !important;
+      font-weight: 500 !important;
+      text-decoration: none !important;
+      border-bottom: 1px dashed rgba(255, 209, 0, 0.4) !important;
+      transition: all 0.15s ease !important;
+    }
+
+    .markdown-section a:hover {
+      color: var(--theme-color-hover) !important;
+      border-bottom: 1px solid var(--accent-dorito) !important;
+    }
+
+    /* Paragraphs and Lists */
+    .markdown-section p, .markdown-section ul, .markdown-section ol {
+      line-height: 1.7 !important;
+      color: #d6d6d6 !important;
+    }
+
+    .markdown-section strong {
+      color: #ffffff !important;
+      font-weight: 600 !important;
+    }
+
+    /* Blockquotes & Callouts */
+    .markdown-section blockquote {
+      border-left: 3px solid var(--accent-dorito) !important;
+      background-color: #14151c !important;
+      color: #d0d0d0 !important;
+      padding: 12px 18px !important;
+      margin: 1.4rem 0 !important;
+      border-top: 1px solid var(--border-subtle);
+      border-right: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .markdown-section blockquote p {
+      margin: 0 !important;
+    }
+
+    /* Tables */
+    .markdown-section table {
+      border-collapse: collapse !important;
+      width: 100% !important;
+      margin: 1.5rem 0 !important;
+      border: 1px solid var(--border-color) !important;
+      font-size: 13.5px !important;
+    }
+
+    .markdown-section th {
+      background-color: #1a1b22 !important;
+      border: 1px solid var(--border-color) !important;
+      color: #ffffff !important;
+      font-weight: 600 !important;
+      padding: 10px 14px !important;
+      text-align: left !important;
+    }
+
+    .markdown-section td {
+      border: 1px solid var(--border-subtle) !important;
+      padding: 8px 14px !important;
+      background-color: #111217 !important;
+    }
+
+    .markdown-section tr:nth-child(2n) td {
+      background-color: #14151c !important;
+    }
+
+    /* Code Blocks */
+    .markdown-section pre {
+      background-color: var(--code-bg) !important;
+      border: 1px solid var(--border-color) !important;
+      padding: 16px 20px !important;
+      overflow-x: auto !important;
+      margin: 1.3rem 0 !important;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    .markdown-section code {
+      background-color: #1e1f27 !important;
+      color: #ffd100 !important;
+      padding: 2px 6px !important;
+      font-size: 13px !important;
+      border: 1px solid #2d2e3a !important;
+    }
+
+    .markdown-section pre code {
+      background-color: transparent !important;
+      color: #f1f1f1 !important;
+      border: none !important;
+      padding: 0 !important;
+      font-size: 13px !important;
+    }
+
+    /* Images */
+    .markdown-section img {
+      max-width: 100% !important;
+      border: 1px solid var(--border-color) !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+      margin: 1.2rem 0 !important;
+    }
+
+    /* Top Navbar */
+    .app-nav {
+      position: fixed;
+      top: 0;
+      right: 25px;
+      padding: 10px 0;
+      background: transparent;
+      z-index: 100;
+    }
+
+    .app-nav a {
+      color: #c0c0c0 !important;
+      font-size: 13px !important;
+      font-weight: 500 !important;
+      padding: 5px 12px !important;
+      background: #16171d;
+      border: 1px solid var(--border-color) !important;
+      text-decoration: none !important;
+      transition: all 0.15s ease;
+    }
+
+    .app-nav a:hover {
+      background: #252630 !important;
+      color: #ffd100 !important;
+      border-color: #ffd100 !important;
+    }
+
+    /* Copy Code Button */
+    .docsify-copy-code-button {
+      background: #282828 !important;
+      color: #ffd100 !important;
+      border: 1px solid #393939 !important;
+      font-family: 'JetBrains Mono', monospace !important;
+      font-size: 11px !important;
+      padding: 4px 8px !important;
+      transition: all 0.15s ease;
+    }
+
+    .docsify-copy-code-button:hover {
+      background: #393939 !important;
+      border-color: #ffd100 !important;
+    }
+
+    /* Custom badges */
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      border: 1px solid transparent;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-right: 4px;
+    }
+
+    .badge-dorito {
+      background-color: #2b2405;
+      color: #ffd100;
+      border-color: #ffd100;
+    }
+
+    .badge-carbon {
+      background-color: #212121;
+      color: #e0e0e0;
+      border-color: #393939;
+    }
+
+    .badge-ribbon {
+      background-color: #2b0b14;
+      color: #fb7185;
+      border-color: #f43f5e;
+    }
+
+    .badge-green {
+      background-color: #0b2b14;
+      color: #4ade80;
+      border-color: #22c55e;
+    }
+
+    .badge-blue {
+      background-color: #0b1a2b;
+      color: #60a5fa;
+      border-color: #3b82f6;
+    }
+
+    /* Docsify Pagination */
+    .pagination-item {
+      border-top: 1px solid var(--border-color) !important;
+      padding-top: 20px !important;
+      margin-top: 40px !important;
+    }
+
+    .pagination-item-title {
+      color: var(--accent-dorito) !important;
+      font-weight: 600 !important;
+    }
+
+    .pagination-item-subtitle {
+      color: var(--text-muted) !important;
+      font-size: 12px !important;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #0d0e12; color: #ffd100; font-family: 'IBM Plex Sans', sans-serif;">
+      <div style="font-size: 24px; font-weight: bold; margin-bottom: 8px;">Niji<span style="color: #fff;">Panel</span> 🥁</div>
+      <div style="color: #888; font-size: 14px;">Загрузка базы знаний документации...</div>
+    </div>
+  </div>
+
+  <script>
+    window.$docsify = {
+      name: '<span style="font-weight:700;letter-spacing:-0.03em;">Niji<span style="color:#ffd100;">Panel</span></span> <span class="version-tag">WIKI</span>',
+      repo: 'https://github.com/perdub/NijiPanel',
+      homepage: 'README.md',
+      loadSidebar: '_sidebar.md',
+      loadNavbar: '_navbar.md',
+      subMaxLevel: 3,
+      auto2top: true,
+      maxLevel: 4,
+      relativePath: true,
+      notFoundPage: true,
+      
+      // Full-text search
+      search: {
+        maxAge: 86400000,
+        paths: 'auto',
+        placeholder: {
+          '/': 'Поиск по документации...'
+        },
+        noData: {
+          '/': 'Ничего не найдено 🥁'
+        },
+        depth: 4,
+        hideOtherSidebarContent: false
+      },
+
+      // Copy Code
+      copyCode: {
+        buttonText: 'Копировать',
+        errorText: 'Ошибка',
+        successText: 'Скопировано!'
+      },
+
+      // Pagination
+      pagination: {
+        previousText: 'Предыдущий раздел',
+        nextText: 'Следующий раздел',
+        crossChapter: true,
+        crossChapterText: true
+      }
+    };
+  </script>
+
+  <!-- Docsify Core -->
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
+  
+  <!-- Docsify Plugins -->
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify-pagination/dist/docsify-pagination.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify/lib/plugins/zoom-image.min.js"></script>
+
+  <!-- Prism Syntax Highlighting -->
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-csharp.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-json.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-yaml.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-docker.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-typescript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-markup.min.js"></script>
+</body>
+</html>

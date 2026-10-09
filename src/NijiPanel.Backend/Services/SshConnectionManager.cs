@@ -39,6 +39,7 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
     private readonly ISettingsService _settingsService;
     private readonly IEncryptionService _encryptionService;
     private readonly ICommandRegistry _cmdRegistry;
+    private readonly ICacheService _cacheService;
     private readonly ConcurrentDictionary<string, SshClient> _sshClients = new();
     private readonly ConcurrentDictionary<string, SftpClient> _sftpClients = new();
     private readonly ILogger<SshConnectionManager> _logger;
@@ -47,11 +48,13 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
         ISettingsService settingsService,
         IEncryptionService encryptionService,
         ICommandRegistry cmdRegistry,
+        ICacheService cacheService,
         ILogger<SshConnectionManager> logger)
     {
         _settingsService = settingsService;
         _encryptionService = encryptionService;
         _cmdRegistry = cmdRegistry;
+        _cacheService = cacheService;
         _logger = logger;
     }
 
@@ -172,6 +175,24 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
 
     public async Task<HostSystemStats> GetHostStatsAsync(HostEntity host)
     {
+        var cacheKey = $"host_stats_{host.Id}";
+        return await _cacheService.GetOrCreateAsync(
+            cacheKey,
+            async () =>
+            {
+                var stats = await FetchHostStatsInternalAsync(host);
+                if (!stats.IsOnline)
+                {
+                    _cacheService.Remove(cacheKey);
+                }
+                return stats;
+            },
+            TimeSpan.FromSeconds(5)
+        );
+    }
+
+    private async Task<HostSystemStats> FetchHostStatsInternalAsync(HostEntity host)
+    {
         try
         {
             var query = _cmdRegistry.GetCommand("System.StatsProbe");
@@ -255,6 +276,14 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
 
     public void InvalidateHost(string hostId)
     {
+        _cacheService.Remove($"host_stats_{hostId}");
+        _cacheService.RemoveByPrefix($"host_{hostId}");
+        _cacheService.RemoveByPrefix($"docker_{hostId}");
+        _cacheService.RemoveByPrefix($"systemd_{hostId}");
+        _cacheService.RemoveByPrefix($"pkg_{hostId}");
+        _cacheService.RemoveByPrefix($"firewall_{hostId}");
+        _cacheService.RemoveByPrefix($"linux_users_{hostId}");
+
         if (_sshClients.TryRemove(hostId, out var ssh))
         {
             try { ssh.Dispose(); } catch { }

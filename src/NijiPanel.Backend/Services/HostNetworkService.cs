@@ -18,6 +18,7 @@ public class HostNetworkService : IHostNetworkService
     private readonly ISshConnectionManager _sshManager;
     private readonly IEncryptionService _encryptionService;
     private readonly ICommandRegistry _cmdRegistry;
+    private readonly ICacheService _cacheService;
     private readonly HttpClient _httpClient;
     private readonly ILogger<HostNetworkService> _logger;
 
@@ -25,12 +26,14 @@ public class HostNetworkService : IHostNetworkService
         ISshConnectionManager sshManager,
         IEncryptionService encryptionService,
         ICommandRegistry cmdRegistry,
+        ICacheService cacheService,
         IHttpClientFactory httpClientFactory,
         ILogger<HostNetworkService> logger)
     {
         _sshManager = sshManager;
         _encryptionService = encryptionService;
         _cmdRegistry = cmdRegistry;
+        _cacheService = cacheService;
         _httpClient = httpClientFactory.CreateClient();
         _httpClient.Timeout = TimeSpan.FromSeconds(5);
         _logger = logger;
@@ -38,7 +41,11 @@ public class HostNetworkService : IHostNetworkService
 
     public async Task<HostNetworkInfoDto> GetHostNetworkInfoAsync(HostEntity host)
     {
-        return await ExecuteAndParseNetworkAsync(host);
+        return await _cacheService.GetOrCreateAsync(
+            $"host_network_{host.Id}",
+            () => ExecuteAndParseNetworkAsync(host),
+            TimeSpan.FromSeconds(30)
+        );
     }
 
     public async Task<HostNetworkInfoDto> InspectNetworkAsync(string host, int port, string username, string authType, string? credential, string? passphrase)

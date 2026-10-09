@@ -12,6 +12,8 @@ var fileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(w
 builder.Environment.WebRootFileProvider = fileProvider;
 
 builder.Services.AddHttpClient();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ICacheService, CacheService>();
 builder.Services.AddSingleton<DatabaseContext>();
 builder.Services.AddSingleton<IEncryptionService, EncryptionService>();
 builder.Services.AddSingleton<IAuthService, AuthService>();
@@ -178,7 +180,7 @@ app.Map("/ws/terminal", async (HttpContext context, IHostService hostService, IT
         string.IsNullOrEmpty(containerId) ? null : containerId,
         tabIndex,
         string.IsNullOrEmpty(initialDir) ? null : initialDir);
-});
+}).RequireAuthorization();
 
 app.Map("/ws/docker-exec", async (HttpContext context, IHostService hostService, ITerminalSessionManager termManager) =>
 {
@@ -215,7 +217,7 @@ app.Map("/ws/docker-exec", async (HttpContext context, IHostService hostService,
         cols,
         rows,
         string.IsNullOrEmpty(containerId) ? null : containerId);
-});
+}).RequireAuthorization();
 
 // SPA fallback for frontend client-side routing
 app.MapFallback(async context =>

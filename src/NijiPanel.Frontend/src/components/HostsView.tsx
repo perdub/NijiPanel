@@ -42,6 +42,10 @@ interface HostsViewProps {
   onOpenOnboarding?: () => void;
 }
 
+// Module-level cache for instantaneous view switching (stale-while-revalidate)
+const cachedStatsMap: Record<string, HostStats> = {};
+const cachedMetricsMap: Record<string, HostMetricsHistory> = {};
+
 export const HostsView: React.FC<HostsViewProps> = ({
   hosts,
   onRefresh,
@@ -50,9 +54,9 @@ export const HostsView: React.FC<HostsViewProps> = ({
   masterPublicKey,
   onOpenOnboarding,
 }) => {
-  const [statsMap, setStatsMap] = useState<Record<string, HostStats>>({});
+  const [statsMap, setStatsMap] = useState<Record<string, HostStats>>(() => ({ ...cachedStatsMap }));
   const [loadingStats, setLoadingStats] = useState<Record<string, boolean>>({});
-  const [metricsMap, setMetricsMap] = useState<Record<string, HostMetricsHistory>>({});
+  const [metricsMap, setMetricsMap] = useState<Record<string, HostMetricsHistory>>(() => ({ ...cachedMetricsMap }));
   const [benchmarkingHostId, setBenchmarkingHostId] = useState<string | null>(null);
   const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkResult | null>(null);
   const [benchmarkError, setBenchmarkError] = useState<string | null>(null);
@@ -129,21 +133,28 @@ export const HostsView: React.FC<HostsViewProps> = ({
   };
 
   const fetchHostStats = async (hostId: string) => {
-    setLoadingStats((prev) => ({ ...prev, [hostId]: true }));
+    // Only show full loading spinner if we don't already have cached stats
+    if (!cachedStatsMap[hostId]) {
+      setLoadingStats((prev) => ({ ...prev, [hostId]: true }));
+    }
     try {
       const [stats, history] = await Promise.all([
         api.hosts.stats(hostId),
         api.hosts.metricsHistory(hostId).catch(() => null),
       ]);
+      cachedStatsMap[hostId] = stats;
       setStatsMap((prev) => ({ ...prev, [hostId]: stats }));
       if (history) {
+        cachedMetricsMap[hostId] = history;
         setMetricsMap((prev) => ({ ...prev, [hostId]: history }));
       }
     } catch {
-      setStatsMap((prev) => ({
-        ...prev,
-        [hostId]: { isOnline: false, error: 'Connection failed' }
-      }));
+      if (!cachedStatsMap[hostId]) {
+        setStatsMap((prev) => ({
+          ...prev,
+          [hostId]: { isOnline: false, error: 'Connection failed' }
+        }));
+      }
     } finally {
       setLoadingStats((prev) => ({ ...prev, [hostId]: false }));
     }

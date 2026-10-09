@@ -16,6 +16,7 @@ public class SystemdService : ISystemdService
     private readonly IHostService _hostService;
     private readonly ISshConnectionManager _sshManager;
     private readonly ICommandRegistry _cmdRegistry;
+    private readonly ICacheService _cacheService;
     private readonly ILogger<SystemdService> _logger;
 
     private static readonly HashSet<string> AllowedActions = new(StringComparer.OrdinalIgnoreCase)
@@ -32,15 +33,26 @@ public class SystemdService : ISystemdService
         IHostService hostService,
         ISshConnectionManager sshManager,
         ICommandRegistry cmdRegistry,
+        ICacheService cacheService,
         ILogger<SystemdService> logger)
     {
         _hostService = hostService;
         _sshManager = sshManager;
         _cmdRegistry = cmdRegistry;
+        _cacheService = cacheService;
         _logger = logger;
     }
 
     public async Task<List<SystemdServiceDto>> GetServicesAsync(string hostId)
+    {
+        return await _cacheService.GetOrCreateAsync(
+            $"systemd_services_{hostId}",
+            () => FetchServicesInternalAsync(hostId),
+            TimeSpan.FromSeconds(5)
+        );
+    }
+
+    private async Task<List<SystemdServiceDto>> FetchServicesInternalAsync(string hostId)
     {
         var host = await _hostService.GetHostEntityAsync(hostId);
         if (host == null) throw new KeyNotFoundException($"Host {hostId} not found");
@@ -136,6 +148,7 @@ public class SystemdService : ISystemdService
 
         var output = (res.Output + "\n" + res.Error).Trim();
         var success = res.ExitCode == 0;
+        _cacheService.Remove($"systemd_services_{hostId}");
 
         return new SystemdActionResult(
             success,

@@ -18,21 +18,33 @@ public class LinuxUserService : ILinuxUserService
     private readonly IHostService _hostService;
     private readonly ISshConnectionManager _sshManager;
     private readonly ICommandRegistry _cmdRegistry;
+    private readonly ICacheService _cacheService;
     private readonly ILogger<LinuxUserService> _logger;
 
     public LinuxUserService(
         IHostService hostService,
         ISshConnectionManager sshManager,
         ICommandRegistry cmdRegistry,
+        ICacheService cacheService,
         ILogger<LinuxUserService> logger)
     {
         _hostService = hostService;
         _sshManager = sshManager;
         _cmdRegistry = cmdRegistry;
+        _cacheService = cacheService;
         _logger = logger;
     }
 
     public async Task<List<LinuxUserDto>> GetUsersAsync(string hostId)
+    {
+        return await _cacheService.GetOrCreateAsync(
+            $"linux_users_{hostId}",
+            () => FetchUsersInternalAsync(hostId),
+            TimeSpan.FromSeconds(15)
+        );
+    }
+
+    private async Task<List<LinuxUserDto>> FetchUsersInternalAsync(string hostId)
     {
         var host = await _hostService.GetHostEntityAsync(hostId);
         if (host == null) throw new KeyNotFoundException($"Host {hostId} not found");
@@ -207,6 +219,7 @@ public class LinuxUserService : ILinuxUserService
         var res = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
         var success = res.ExitCode == 0;
         var output = (res.Output + "\n" + res.Error).Trim();
+        if (success) _cacheService.Remove($"linux_users_{hostId}");
 
         return new LinuxUserActionResult(
             success,
@@ -227,6 +240,7 @@ public class LinuxUserService : ILinuxUserService
 
         var success = res.ExitCode == 0;
         var output = (res.Output + "\n" + res.Error).Trim();
+        if (success) _cacheService.Remove($"linux_users_{hostId}");
 
         return new LinuxUserActionResult(
             success,
@@ -247,6 +261,7 @@ public class LinuxUserService : ILinuxUserService
 
         var success = res.ExitCode == 0;
         var output = (res.Output + "\n" + res.Error).Trim();
+        if (success) _cacheService.Remove($"linux_users_{hostId}");
 
         return new LinuxUserActionResult(
             success,
@@ -277,6 +292,7 @@ public class LinuxUserService : ILinuxUserService
             var remCmd = _cmdRegistry.GetCommand("Users.RemoveSudo", new { username = cleanUser });
             var remTimeout = _cmdRegistry.GetTimeout("Users.RemoveSudo", 15);
             var remRes = await _sshManager.RunCommandAsync(host, remCmd, timeoutSeconds: remTimeout);
+            _cacheService.Remove($"linux_users_{hostId}");
             return new LinuxUserActionResult(true, $"Removed sudo privileges from user '{cleanUser}'", remRes.Output);
         }
         else
@@ -284,6 +300,7 @@ public class LinuxUserService : ILinuxUserService
             var addCmd = _cmdRegistry.GetCommand("Users.AddSudo", new { username = cleanUser });
             var addTimeout = _cmdRegistry.GetTimeout("Users.AddSudo", 15);
             var addRes = await _sshManager.RunCommandAsync(host, addCmd, timeoutSeconds: addTimeout);
+            _cacheService.Remove($"linux_users_{hostId}");
             return new LinuxUserActionResult(addRes.ExitCode == 0, $"Granted sudo privileges to user '{cleanUser}'", addRes.Output);
         }
     }
@@ -306,6 +323,7 @@ public class LinuxUserService : ILinuxUserService
 
         var success = res.ExitCode == 0;
         var output = (res.Output + "\n" + res.Error).Trim();
+        if (success) _cacheService.Remove($"linux_users_{hostId}");
 
         return new LinuxUserActionResult(
             success,
