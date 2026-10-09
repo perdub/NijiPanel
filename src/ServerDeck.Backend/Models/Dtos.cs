@@ -39,7 +39,8 @@ public record CreateHostRequest(
     string? Credential, // plain text password or private key content
     string? Passphrase,
     string? Notes,
-    string? Tags
+    string? Tags,
+    bool HardeningRandomPort = false
 );
 
 public record UpdateHostRequest(
@@ -119,3 +120,191 @@ public record SshKeyGenerateResponse(
     string Type,
     string Fingerprint
 );
+
+public record LiveSocketDto(
+    string Protocol,
+    string State,
+    string LocalAddress,
+    int Port,
+    string? ProcessName,
+    int? Pid,
+    string Raw
+);
+
+public record RandomizePortRequest(int? TargetPort = null);
+
+public record RandomizePortResult(
+    bool Success,
+    int OldPort,
+    int NewPort,
+    string Message,
+    string? Details = null
+);
+
+// === Packet 4: Monitoring, Alerts, Security & Passkeys ===
+
+// 1. Beszel-Style Metrics & Prediction
+public record MetricDataPoint(
+    DateTime Timestamp,
+    double CpuPercent,
+    double RamPercent,
+    double NetRxKbps,
+    double NetTxKbps,
+    double DiskPercent
+);
+
+public record DiskFillPrediction(
+    bool IsStable,
+    double? DaysUntilFull,
+    double? HoursUntilFull,
+    string FormattedPrediction
+);
+
+public record HostMetricsHistoryResponse(
+    string HostId,
+    DiskFillPrediction Prediction,
+    List<MetricDataPoint> History
+);
+
+// 2. Notifications & External Alerts
+public record NotificationDto(
+    string Id,
+    string? HostId,
+    string Title,
+    string Message,
+    string Severity,
+    DateTime CreatedAt,
+    bool IsRead
+);
+
+public record NotificationListResponse(
+    List<NotificationDto> Notifications,
+    int UnreadCount
+);
+
+public record CreateNotificationRequest(
+    string? HostId,
+    string Title,
+    string Message,
+    string Severity = "info"
+);
+
+public record AlertSettingsDto(
+    string? TelegramBotToken,
+    string? TelegramChatId,
+    string? WebhookUrl,
+    bool AlertsEnabled
+);
+
+public record TestAlertRequest(
+    string? TelegramBotToken,
+    string? TelegramChatId,
+    string? WebhookUrl
+);
+
+public record TestAlertResult(
+    bool TelegramSuccess,
+    string? TelegramError,
+    bool WebhookSuccess,
+    string? WebhookError
+);
+
+// 3. Hardware Benchmark
+public record BenchmarkResultDto(
+    string HostId,
+    string HostName,
+    int Score,
+    double DiskWriteSpeedMBps,
+    string DiskWriteFormatted,
+    long CpuSha256Ops,
+    string CpuFormatted,
+    double PingAverageMs,
+    string PingFormatted,
+    DateTime ExecutedAt,
+    string Summary
+);
+
+// 4. Firewall & Fail2ban
+public record FirewallRuleDto(
+    int Number,
+    string Action,
+    string From,
+    string To,
+    string Protocol,
+    string? Direction
+);
+
+public record FirewallStatusDto(
+    bool IsActive,
+    string StatusText,
+    string Backend,
+    List<FirewallRuleDto> Rules
+);
+
+public record CreateFirewallRuleRequest(
+    string Port,
+    string Protocol = "tcp", // tcp, udp, any
+    string Action = "allow", // allow, deny, reject
+    string? From = null // "Anywhere" or specific IP/CIDR
+);
+
+public record FirewallOperationResult(
+    bool Success,
+    string Message,
+    string? Output = null
+);
+
+public record Fail2banStatusDto(
+    bool IsInstalled,
+    bool IsRunning,
+    List<string> Jails,
+    List<string> BannedIps,
+    int CurrentlyBanned,
+    int TotalBanned
+);
+
+public record UnbanIpRequest(
+    string Ip,
+    string? Jail = null
+);
+
+// 5. Passkeys (WebAuthn)
+public record PasskeyDto(
+    string Id,
+    string Name,
+    DateTime CreatedAt
+);
+
+public record PasskeyRegisterChallengeResponse(
+    string Challenge,
+    string RpId,
+    string RpName,
+    string UserId,
+    string UserName,
+    string UserDisplayName,
+    long Timeout = 60000
+);
+
+public record PasskeyRegisterVerifyRequest(
+    string Name,
+    string CredentialId,
+    string ClientDataJson,
+    string AttestationObject
+);
+
+public record PasskeyLoginChallengeResponse(
+    string Challenge,
+    string RpId,
+    long Timeout = 60000,
+    List<string>? AllowCredentials = null
+);
+
+public record PasskeyLoginVerifyRequest(
+    string CredentialId,
+    string ClientDataJson,
+    string AuthenticatorData,
+    string Signature,
+    string? UserHandle = null
+);
+
+

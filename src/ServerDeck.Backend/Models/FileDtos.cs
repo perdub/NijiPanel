@@ -41,3 +41,29 @@ public record RenameEntryRequest(
     string OldPath,
     string NewPath
 );
+
+public record DiskUsageItemDto(
+    string Path,
+    string Name,
+    long SizeBytes,
+    double Percent,
+    int Depth
+);
+
+public record DiskUsageResultDto(
+    string Path,
+    long TotalSizeBytes,
+    List<DiskUsageItemDto> Items
+);
+
+public record ArchiveFilesRequest(
+    string Path,
+    List<string> Items,
+    string Format, // "zip" | "tar.gz"
+    string ArchiveName
+);
+
+public record ExtractArchiveRequest(
+    string ArchivePath,
+    string DestinationPath
+);

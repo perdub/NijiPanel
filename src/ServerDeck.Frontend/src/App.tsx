@@ -3,15 +3,19 @@ import { Navbar } from './components/Navbar';
 import { HostsView } from './components/HostsView';
 import { DockerView } from './components/DockerView';
 import { ComposeView } from './components/ComposeView';
+import { AppStoreView } from './components/AppStoreView';
+import { ServicesView } from './components/ServicesView';
 import { FilesView } from './components/FilesView';
 import { TerminalView } from './components/TerminalView';
 import { PortsNotesView } from './components/PortsNotesView';
+import { FirewallView } from './components/FirewallView';
 import { CronView } from './components/CronView';
 import { UtilsView } from './components/UtilsView';
 import { SettingsModal } from './components/SettingsModal';
 import { AuthModal } from './components/AuthModal';
+import { NotificationDrawer } from './components/NotificationDrawer';
 import { api, clearToken, getToken } from './api';
-import { Host, MasterKey } from './types';
+import { Host, MasterKey, NotificationItem } from './types';
 import { Loader2 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -28,6 +32,11 @@ export const App: React.FC = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [fileToEditPath, setFileToEditPath] = useState<string | null>(null);
 
+  // Notification center states
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationDrawerOpen, setNotificationDrawerOpen] = useState(false);
+
   const checkAuth = async () => {
     try {
       const res = await api.auth.status();
@@ -38,6 +47,61 @@ export const App: React.FC = () => {
       setIsAuthenticated(false);
     } finally {
       setAuthChecked(true);
+    }
+  };
+
+  const loadNotifications = async () => {
+    try {
+      const res = await api.notifications.list();
+      setNotifications(res.notifications);
+      setUnreadCount(res.unreadCount);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      await api.notifications.markRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await api.notifications.markAllRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleDeleteNotification = async (id: string) => {
+    try {
+      await api.notifications.delete(id);
+      const target = notifications.find((n) => n.id === id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      if (target && !target.isRead) {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleClearAllNotifications = async () => {
+    try {
+      await api.notifications.clearAll();
+      setNotifications([]);
+      setUnreadCount(0);
+    } catch {
+      // ignore
     }
   };
 
@@ -71,6 +135,9 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated) {
       loadData();
+      loadNotifications();
+      const interval = setInterval(loadNotifications, 20000);
+      return () => clearInterval(interval);
     }
   }, [isAuthenticated]);
 
@@ -83,6 +150,7 @@ export const App: React.FC = () => {
     setIsAuthenticated(true);
     setUsername(user);
     loadData();
+    loadNotifications();
   };
 
   if (!authChecked) {
@@ -121,6 +189,8 @@ export const App: React.FC = () => {
         setSelectedHostId={setSelectedHostId}
         onOpenAddHost={() => setActiveTab('hosts')}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenNotifications={() => setNotificationDrawerOpen(true)}
+        unreadCount={unreadCount}
         onLogout={handleLogout}
         username={username}
       />
@@ -133,6 +203,21 @@ export const App: React.FC = () => {
             onSelectHost={(id) => setSelectedHostId(id)}
             onOpenTab={(tab) => setActiveTab(tab)}
             masterPublicKey={masterKey?.publicKey || ''}
+          />
+        )}
+
+        {activeTab === 'services' && (
+          <ServicesView
+            selectedHost={selectedHost}
+            hosts={hosts}
+            onSelectHost={(id) => setSelectedHostId(id)}
+          />
+        )}
+
+        {activeTab === 'appstore' && (
+          <AppStoreView
+            selectedHost={selectedHost}
+            onNavigateToCompose={() => setActiveTab('compose')}
           />
         )}
 
@@ -164,6 +249,8 @@ export const App: React.FC = () => {
 
         {activeTab === 'ports' && <PortsNotesView selectedHost={selectedHost} />}
 
+        {activeTab === 'firewall' && <FirewallView selectedHost={selectedHost} />}
+
         {activeTab === 'utils' && <UtilsView masterPublicKey={masterKey?.publicKey || ''} />}
       </main>
 
@@ -172,6 +259,17 @@ export const App: React.FC = () => {
         onClose={() => setSettingsOpen(false)}
         masterKey={masterKey}
         onMasterKeyUpdated={(updated) => setMasterKey(updated)}
+      />
+
+      <NotificationDrawer
+        isOpen={notificationDrawerOpen}
+        onClose={() => setNotificationDrawerOpen(false)}
+        notifications={notifications}
+        unreadCount={unreadCount}
+        onMarkAsRead={handleMarkAsRead}
+        onMarkAllAsRead={handleMarkAllAsRead}
+        onDelete={handleDeleteNotification}
+        onClearAll={handleClearAllNotifications}
       />
     </div>
   );

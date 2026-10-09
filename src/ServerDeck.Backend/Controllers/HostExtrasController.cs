@@ -56,4 +56,22 @@ public class HostExtrasController : ControllerBase
         var saved = await _extrasService.SaveNoteAsync(hostId, request);
         return Ok(saved);
     }
+
+    [HttpGet("ports/live-sockets")]
+    public async Task<ActionResult<List<LiveSocketDto>>> GetLiveSockets(string hostId)
+    {
+        try
+        {
+            var sockets = await _extrasService.GetLiveSocketsAsync(hostId);
+            return Ok(sockets);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 }

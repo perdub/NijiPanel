@@ -12,11 +12,19 @@ public class HostsController : ControllerBase
 {
     private readonly IHostService _hostService;
     private readonly ISshConnectionManager _sshManager;
+    private readonly IMetricsHistoryService _metricsService;
+    private readonly IBenchmarkService _benchmarkService;
 
-    public HostsController(IHostService hostService, ISshConnectionManager sshManager)
+    public HostsController(
+        IHostService hostService,
+        ISshConnectionManager sshManager,
+        IMetricsHistoryService metricsService,
+        IBenchmarkService benchmarkService)
     {
         _hostService = hostService;
         _sshManager = sshManager;
+        _metricsService = metricsService;
+        _benchmarkService = benchmarkService;
     }
 
     [HttpGet]
@@ -79,6 +87,74 @@ public class HostsController : ControllerBase
         if (host == null) return NotFound(new { error = "Host not found" });
 
         var stats = await _sshManager.GetHostStatsAsync(host);
+        if (stats.IsOnline)
+        {
+            _metricsService.RecordFromStats(id, stats);
+        }
         return Ok(stats);
+    }
+
+    [HttpGet("{id}/metrics/history")]
+    public async Task<ActionResult<HostMetricsHistoryResponse>> GetMetricsHistory(string id)
+    {
+        var host = await _hostService.GetHostEntityAsync(id);
+        if (host == null) return NotFound(new { error = "Host not found" });
+
+        HostSystemStats? stats = null;
+        try
+        {
+            stats = await _sshManager.GetHostStatsAsync(host);
+            if (stats.IsOnline)
+            {
+                _metricsService.RecordFromStats(id, stats);
+            }
+        }
+        catch
+        {
+            // Ignore stats failure, fallback to existing buffer
+        }
+
+        var history = _metricsService.GetHistory(id, stats);
+        return Ok(history);
+    }
+
+    [HttpPost("{id}/benchmark")]
+    [HttpGet("{id}/benchmark")]
+    public async Task<ActionResult<BenchmarkResultDto>> RunBenchmark(string id)
+    {
+        var host = await _hostService.GetHostEntityAsync(id);
+        if (host == null) return NotFound(new { error = "Host not found" });
+
+        try
+        {
+            var result = await _benchmarkService.RunBenchmarkAsync(host);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("{id}/randomize-port")]
+    public async Task<ActionResult<RandomizePortResult>> RandomizePort(string id, [FromBody] RandomizePortRequest? request)
+    {
+        try
+        {
+            var result = await _hostService.RandomizeSshPortAsync(id, request?.TargetPort);
+            if (!result.Success)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 }

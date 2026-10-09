@@ -15,21 +15,49 @@ public record SharedFileDto(
     int DownloadCount,
     int? MaxDownloads,
     bool IsActive,
-    string DownloadUrl
+    string DownloadUrl,
+    bool HasPassword = false
 );
 
 public record CreateShareLinkRequest(
+    string? HostId,
     string FilePath,
+    int? ExpireHours = null,
     int? ExpireDays = null,
-    int? MaxDownloads = null
+    int? MaxDownloads = null,
+    string? Password = null
+);
+
+public enum ShareValidationStatus
+{
+    Ok,
+    NotFound,
+    Expired,
+    LimitReached,
+    PasswordRequired,
+    InvalidPassword
+}
+
+public record ShareValidationResult(
+    ShareValidationStatus Status,
+    HostEntity? Host = null,
+    string? FilePath = null,
+    string? FileName = null
 );
 
 public interface IFileShareService
 {
-    Task<SharedFileDto> CreateShareLinkAsync(string hostId, string filePath, int? expireDays = null, int? maxDownloads = null);
+    Task<SharedFileDto> CreateShareLinkAsync(
+        string hostId,
+        string filePath,
+        int? expireHours = null,
+        int? expireDays = null,
+        int? maxDownloads = null,
+        string? password = null
+    );
     Task<List<SharedFileDto>> ListSharedFilesAsync(string? hostId = null);
     Task<bool> RevokeShareLinkAsync(string token);
-    Task<(HostEntity Host, string FilePath, string FileName)?> ValidateAndRecordDownloadAsync(string token);
+    Task<ShareValidationResult> ValidateAndRecordDownloadAsync(string token, string? password = null);
 }
 
 public class FileShareService : IFileShareService
@@ -43,20 +71,39 @@ public class FileShareService : IFileShareService
         _hostService = hostService;
     }
 
-    public async Task<SharedFileDto> CreateShareLinkAsync(string hostId, string filePath, int? expireDays = null, int? maxDownloads = null)
+    public async Task<SharedFileDto> CreateShareLinkAsync(
+        string hostId,
+        string filePath,
+        int? expireHours = null,
+        int? expireDays = null,
+        int? maxDownloads = null,
+        string? password = null)
     {
         var token = GenerateUrlSafeToken(12);
         var fileName = Path.GetFileName(filePath);
         var now = DateTime.UtcNow;
-        DateTime? expiresAt = expireDays.HasValue && expireDays.Value > 0
-            ? now.AddDays(expireDays.Value)
-            : null;
+
+        DateTime? expiresAt = null;
+        if (expireHours.HasValue && expireHours.Value > 0)
+        {
+            expiresAt = now.AddHours(expireHours.Value);
+        }
+        else if (expireDays.HasValue && expireDays.Value > 0)
+        {
+            expiresAt = now.AddDays(expireDays.Value);
+        }
+
+        string? passwordHash = null;
+        if (!string.IsNullOrWhiteSpace(password))
+        {
+            passwordHash = HashPassword(password.Trim());
+        }
 
         using var conn = _dbContext.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
-            INSERT INTO shared_files (id, host_id, file_path, file_name, created_at, expires_at, download_count, max_downloads, is_active)
-            VALUES ($id, $host_id, $file_path, $file_name, $created_at, $expires_at, 0, $max_downloads, 1);
+            INSERT INTO shared_files (id, host_id, file_path, file_name, created_at, expires_at, download_count, max_downloads, is_active, password_hash)
+            VALUES ($id, $host_id, $file_path, $file_name, $created_at, $expires_at, 0, $max_downloads, 1, $password_hash);
         ";
         cmd.Parameters.AddWithValue("$id", token);
         cmd.Parameters.AddWithValue("$host_id", hostId);
@@ -65,6 +112,7 @@ public class FileShareService : IFileShareService
         cmd.Parameters.AddWithValue("$created_at", now.ToString("o"));
         cmd.Parameters.AddWithValue("$expires_at", (object?)expiresAt?.ToString("o") ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$max_downloads", (object?)maxDownloads ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$password_hash", (object?)passwordHash ?? DBNull.Value);
         cmd.ExecuteNonQuery();
 
         return new SharedFileDto(
@@ -77,7 +125,8 @@ public class FileShareService : IFileShareService
             0,
             maxDownloads,
             true,
-            $"/d/{token}"
+            $"/d/{token}",
+            !string.IsNullOrEmpty(passwordHash)
         );
     }
 
@@ -87,8 +136,8 @@ public class FileShareService : IFileShareService
         using var conn = _dbContext.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = string.IsNullOrEmpty(hostId)
-            ? "SELECT id, host_id, file_path, file_name, created_at, expires_at, download_count, max_downloads, is_active FROM shared_files ORDER BY created_at DESC;"
-            : "SELECT id, host_id, file_path, file_name, created_at, expires_at, download_count, max_downloads, is_active FROM shared_files WHERE host_id = $host_id ORDER BY created_at DESC;";
+            ? "SELECT id, host_id, file_path, file_name, created_at, expires_at, download_count, max_downloads, is_active, password_hash FROM shared_files ORDER BY created_at DESC;"
+            : "SELECT id, host_id, file_path, file_name, created_at, expires_at, download_count, max_downloads, is_active, password_hash FROM shared_files WHERE host_id = $host_id ORDER BY created_at DESC;";
 
         if (!string.IsNullOrEmpty(hostId))
         {
@@ -107,6 +156,7 @@ public class FileShareService : IFileShareService
             var count = reader.GetInt32(6);
             int? max = reader.IsDBNull(7) ? null : reader.GetInt32(7);
             var active = reader.GetInt32(8) == 1;
+            var hasPassword = !reader.IsDBNull(9) && !string.IsNullOrEmpty(reader.GetString(9));
 
             list.Add(new SharedFileDto(
                 token,
@@ -118,7 +168,8 @@ public class FileShareService : IFileShareService
                 count,
                 max,
                 active,
-                $"/d/{token}"
+                $"/d/{token}",
+                hasPassword
             ));
         }
 
@@ -134,15 +185,15 @@ public class FileShareService : IFileShareService
         return cmd.ExecuteNonQuery() > 0;
     }
 
-    public async Task<(HostEntity Host, string FilePath, string FileName)?> ValidateAndRecordDownloadAsync(string token)
+    public async Task<ShareValidationResult> ValidateAndRecordDownloadAsync(string token, string? password = null)
     {
         using var conn = _dbContext.CreateConnection();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT host_id, file_path, file_name, expires_at, download_count, max_downloads, is_active FROM shared_files WHERE id = $id LIMIT 1;";
+        cmd.CommandText = "SELECT host_id, file_path, file_name, expires_at, download_count, max_downloads, is_active, password_hash FROM shared_files WHERE id = $id LIMIT 1;";
         cmd.Parameters.AddWithValue("$id", token);
 
         using var reader = cmd.ExecuteReader();
-        if (!reader.Read()) return null;
+        if (!reader.Read()) return new ShareValidationResult(ShareValidationStatus.NotFound);
 
         var hostId = reader.GetString(0);
         var filePath = reader.GetString(1);
@@ -151,18 +202,33 @@ public class FileShareService : IFileShareService
         var downloadCount = reader.GetInt32(4);
         int? maxDownloads = reader.IsDBNull(5) ? null : reader.GetInt32(5);
         var isActive = reader.GetInt32(6) == 1;
+        var passwordHash = reader.IsDBNull(7) ? null : reader.GetString(7);
         reader.Close();
 
-        if (!isActive) return null;
+        if (!isActive) return new ShareValidationResult(ShareValidationStatus.NotFound);
 
         if (expiresAt.HasValue && DateTime.UtcNow > expiresAt.Value)
         {
-            return null; // Expired
+            return new ShareValidationResult(ShareValidationStatus.Expired);
         }
 
         if (maxDownloads.HasValue && downloadCount >= maxDownloads.Value)
         {
-            return null; // Exceeded limit
+            return new ShareValidationResult(ShareValidationStatus.LimitReached);
+        }
+
+        if (!string.IsNullOrEmpty(passwordHash))
+        {
+            if (string.IsNullOrEmpty(password))
+            {
+                return new ShareValidationResult(ShareValidationStatus.PasswordRequired);
+            }
+
+            var enteredHash = HashPassword(password.Trim());
+            if (!string.Equals(enteredHash, passwordHash, StringComparison.OrdinalIgnoreCase))
+            {
+                return new ShareValidationResult(ShareValidationStatus.InvalidPassword);
+            }
         }
 
         // Increment count
@@ -172,9 +238,16 @@ public class FileShareService : IFileShareService
         incCmd.ExecuteNonQuery();
 
         var host = await _hostService.GetHostEntityAsync(hostId);
-        if (host == null) return null;
+        if (host == null) return new ShareValidationResult(ShareValidationStatus.NotFound);
 
-        return (host, filePath, fileName);
+        return new ShareValidationResult(ShareValidationStatus.Ok, host, filePath, fileName);
+    }
+
+    private static string HashPassword(string password)
+    {
+        using var sha = SHA256.Create();
+        var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(password));
+        return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 
     private static string GenerateUrlSafeToken(int length = 12)

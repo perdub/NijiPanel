@@ -11,6 +11,7 @@ public interface IHostService
     Task<HostDto> CreateHostAsync(CreateHostRequest request);
     Task<HostDto?> UpdateHostAsync(string id, UpdateHostRequest request);
     Task<bool> DeleteHostAsync(string id);
+    Task<RandomizePortResult> RandomizeSshPortAsync(string hostId, int? desiredPort = null);
 }
 
 public class HostService : IHostService
@@ -236,5 +237,114 @@ public class HostService : IHostService
         cmd.Parameters.AddWithValue("$id", id);
         var rows = cmd.ExecuteNonQuery();
         return rows > 0;
+    }
+
+    public async Task<RandomizePortResult> RandomizeSshPortAsync(string hostId, int? desiredPort = null)
+    {
+        var host = await GetHostEntityAsync(hostId);
+        if (host == null) throw new KeyNotFoundException("Host not found");
+
+        var oldPort = host.Port;
+        var newPort = (desiredPort.HasValue && desiredPort.Value >= 1024 && desiredPort.Value <= 65535)
+            ? desiredPort.Value
+            : Random.Shared.Next(20000, 59001);
+
+        if (newPort == oldPort)
+        {
+            newPort = Random.Shared.Next(20000, 59001);
+        }
+
+        try
+        {
+            var hardeningScript = $@"
+NEW_PORT={newPort}
+
+if ss -tulpn 2>/dev/null | grep -q "":$NEW_PORT\b""; then
+  echo ""PORT_IN_USE""
+  exit 1
+fi
+
+cp /etc/ssh/sshd_config /etc/ssh/sshd_config.serverdeck.bak 2>/dev/null || true
+
+if grep -q -E ""^[#]*[[:space:]]*Port[[:space:]]+"" /etc/ssh/sshd_config; then
+  sed -i -E ""s/^[#]*[[:space:]]*Port[[:space:]]+[0-9]+/Port $NEW_PORT/"" /etc/ssh/sshd_config
+else
+  echo ""Port $NEW_PORT"" >> /etc/ssh/sshd_config
+fi
+
+if [ -d /etc/ssh/sshd_config.d ]; then
+  echo ""Port $NEW_PORT"" > /etc/ssh/sshd_config.d/99-serverdeck-port.conf
+fi
+
+sshd -t 2>&1
+TEST_EXIT=$?
+
+if [ $TEST_EXIT -ne 0 ]; then
+  echo ""SSHD_TEST_FAILED""
+  if [ -f /etc/ssh/sshd_config.serverdeck.bak ]; then
+    cp /etc/ssh/sshd_config.serverdeck.bak /etc/ssh/sshd_config
+  fi
+  if [ -f /etc/ssh/sshd_config.d/99-serverdeck-port.conf ]; then
+    rm -f /etc/ssh/sshd_config.d/99-serverdeck-port.conf
+  fi
+  exit 1
+fi
+
+if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q ""Status: active""; then
+  ufw allow $NEW_PORT/tcp 2>/dev/null || true
+fi
+
+if command -v iptables >/dev/null 2>&1; then
+  iptables -C INPUT -p tcp --dport $NEW_PORT -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport $NEW_PORT -j ACCEPT 2>/dev/null || true
+fi
+
+systemctl reload ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || systemctl reload sshd 2>/dev/null || systemctl restart ssh 2>/dev/null || service ssh reload 2>/dev/null || service ssh restart 2>/dev/null || true
+
+echo ""SSHD_HARDENING_SUCCESS""
+";
+
+            var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, hardeningScript, 30);
+
+            if (exitCode != 0 || !output.Contains("SSHD_HARDENING_SUCCESS"))
+            {
+                var failureMsg = string.IsNullOrWhiteSpace(error) ? output : error;
+                return new RandomizePortResult(
+                    false,
+                    oldPort,
+                    oldPort,
+                    "SSH port hardening check failed. Configuration rolled back.",
+                    failureMsg
+                );
+            }
+
+            using (var conn = _dbContext.CreateConnection())
+            using (var dbCmd = conn.CreateCommand())
+            {
+                dbCmd.CommandText = "UPDATE hosts SET port = $port WHERE id = $id;";
+                dbCmd.Parameters.AddWithValue("$port", newPort);
+                dbCmd.Parameters.AddWithValue("$id", hostId);
+                dbCmd.ExecuteNonQuery();
+            }
+
+            _sshManager.InvalidateHost(hostId);
+
+            return new RandomizePortResult(
+                true,
+                oldPort,
+                newPort,
+                $"SSH port hardened to {newPort} (firewall opened & sshd reloaded).",
+                output
+            );
+        }
+        catch (Exception ex)
+        {
+            return new RandomizePortResult(
+                false,
+                oldPort,
+                oldPort,
+                $"Failed to harden SSH port: {ex.Message}",
+                ex.ToString()
+            );
+        }
     }
 }

@@ -110,9 +110,42 @@ public class DatabaseContext
                 download_count INTEGER NOT NULL DEFAULT 0,
                 max_downloads INTEGER,
                 is_active INTEGER NOT NULL DEFAULT 1,
+                password_hash TEXT,
                 FOREIGN KEY(host_id) REFERENCES hosts(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS notifications (
+                id TEXT PRIMARY KEY,
+                host_id TEXT,
+                title TEXT NOT NULL,
+                message TEXT NOT NULL,
+                severity TEXT NOT NULL DEFAULT 'info', /* 'info', 'warning', 'error' */
+                created_at TEXT NOT NULL,
+                is_read INTEGER NOT NULL DEFAULT 0
+            );
+
+            CREATE TABLE IF NOT EXISTS passkeys (
+                id TEXT PRIMARY KEY, /* base64url credentialId */
+                user_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                public_key TEXT NOT NULL,
+                counter INTEGER NOT NULL DEFAULT 0,
+                credential_type TEXT NOT NULL DEFAULT 'public-key',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
             );
         ";
         cmd.ExecuteNonQuery();
+
+        try
+        {
+            using var alterCmd = conn.CreateCommand();
+            alterCmd.CommandText = "ALTER TABLE shared_files ADD COLUMN password_hash TEXT;";
+            alterCmd.ExecuteNonQuery();
+        }
+        catch
+        {
+            // Column already exists or table newly created
+        }
     }
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Lock, User, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
-import { api, setToken } from '../api';
+import { Lock, User, ArrowRight, AlertCircle, Loader2, Fingerprint } from 'lucide-react';
+import { api, setToken, bufferToBase64Url, base64UrlToBuffer } from '../api';
 import { DoritoLogo } from './DoritoLogo';
 
 interface AuthModalProps {
@@ -13,6 +13,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isSetup, onSuccess }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,6 +47,63 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isSetup, onSuccess }) => {
       setError(err.message || 'Authentication error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasskeySignIn = async () => {
+    setError(null);
+    if (!window.PublicKeyCredential) {
+      setError('Passkeys / WebAuthn is not supported in this browser.');
+      return;
+    }
+
+    setPasskeyLoading(true);
+    try {
+      const challengeRes = await api.passkey.loginChallenge();
+      const challengeBuffer = base64UrlToBuffer(challengeRes.challenge);
+
+      const allowCredentials = challengeRes.allowCredentials?.map((id) => ({
+        id: base64UrlToBuffer(id),
+        type: 'public-key' as const,
+      }));
+
+      const credential = (await navigator.credentials.get({
+        publicKey: {
+          challenge: challengeBuffer,
+          rpId: challengeRes.rpId || window.location.hostname,
+          timeout: challengeRes.timeout || 60000,
+          userVerification: 'preferred',
+          allowCredentials: allowCredentials && allowCredentials.length > 0 ? allowCredentials : undefined,
+        },
+      })) as PublicKeyCredential;
+
+      if (!credential) {
+        throw new Error('Authentication cancelled');
+      }
+
+      const rawResp = credential.response as AuthenticatorAssertionResponse;
+      const clientDataJson = bufferToBase64Url(rawResp.clientDataJSON);
+      const authenticatorData = bufferToBase64Url(rawResp.authenticatorData);
+      const signature = bufferToBase64Url(rawResp.signature);
+      const credentialId = bufferToBase64Url(credential.rawId);
+      const userHandle = rawResp.userHandle ? bufferToBase64Url(rawResp.userHandle) : undefined;
+
+      const authRes = await api.passkey.loginVerify({
+        credentialId,
+        clientDataJson,
+        authenticatorData,
+        signature,
+        userHandle,
+      });
+
+      setToken(authRes.token);
+      onSuccess(authRes.username);
+    } catch (err: any) {
+      if (err.name !== 'NotAllowedError') {
+        setError(err.message || 'Passkey sign-in failed');
+      }
+    } finally {
+      setPasskeyLoading(false);
     }
   };
 
@@ -141,7 +199,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isSetup, onSuccess }) => {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || passkeyLoading}
             className="w-full mt-2 py-2.5 px-4 rounded-xl bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-dorito-500/20 transition-all disabled:opacity-50 active:scale-[0.99]"
           >
             {loading ? (
@@ -154,6 +212,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isSetup, onSuccess }) => {
             )}
           </button>
         </form>
+
+        {isSetup && (
+          <div className="mt-4 pt-4 border-t border-carbon-800">
+            <button
+              type="button"
+              onClick={handlePasskeySignIn}
+              disabled={loading || passkeyLoading}
+              className="w-full py-2.5 px-4 rounded-xl bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 hover:border-dorito-500/50 text-white font-mono font-medium text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-50"
+            >
+              {passkeyLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin text-dorito-500" />
+              ) : (
+                <Fingerprint className="w-4 h-4 text-dorito-500" />
+              )}
+              <span>Sign in with Passkey 🔑</span>
+            </button>
+          </div>
+        )}
 
         {/* Easter egg footer note */}
         <div className="mt-6 pt-4 border-t border-carbon-700 text-center">

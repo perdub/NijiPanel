@@ -131,10 +131,10 @@ public class TerminalSession : IDisposable
 
 public interface ITerminalSessionManager
 {
-    TerminalSession GetOrCreateSession(HostEntity host, string? sessionId, uint cols, uint rows);
+    TerminalSession GetOrCreateSession(HostEntity host, string? sessionId, uint cols, uint rows, string? containerId = null);
     TerminalSession? GetSession(string sessionId);
     void CloseSession(string sessionId);
-    Task HandleWebSocketAsync(WebSocket webSocket, HostEntity host, string? sessionId, uint cols, uint rows);
+    Task HandleWebSocketAsync(WebSocket webSocket, HostEntity host, string? sessionId, uint cols, uint rows, string? containerId = null);
 }
 
 public class TerminalSessionManager : ITerminalSessionManager
@@ -168,7 +168,7 @@ public class TerminalSessionManager : ITerminalSessionManager
         });
     }
 
-    public TerminalSession GetOrCreateSession(HostEntity host, string? sessionId, uint cols, uint rows)
+    public TerminalSession GetOrCreateSession(HostEntity host, string? sessionId, uint cols, uint rows, string? containerId = null)
     {
         if (!string.IsNullOrEmpty(sessionId) && _sessions.TryGetValue(sessionId, out var existing))
         {
@@ -176,7 +176,11 @@ public class TerminalSessionManager : ITerminalSessionManager
             return existing;
         }
 
-        var newId = string.IsNullOrEmpty(sessionId) ? Guid.NewGuid().ToString("N") : sessionId;
+        var newId = string.IsNullOrEmpty(sessionId)
+            ? (!string.IsNullOrEmpty(containerId)
+                ? $"exec-{containerId[..Math.Min(12, containerId.Length)]}-{Guid.NewGuid():N[..6]}"
+                : Guid.NewGuid().ToString("N"))
+            : sessionId;
         var client = _sshManager.GetSshClient(host);
 
         var termCols = cols > 0 ? cols : 80;
@@ -186,8 +190,37 @@ public class TerminalSessionManager : ITerminalSessionManager
         var session = new TerminalSession(newId, host.Id, shell);
         session.StartReading(_logger);
 
+        // If running in container exec mode, immediately attach docker exec to shell stream
+        if (!string.IsNullOrWhiteSpace(containerId))
+        {
+            try
+            {
+                var cleanId = SanitizeContainerId(containerId);
+                var execCmd = $"exec docker exec -it {cleanId} sh -c \"([ -f /bin/bash ] || [ -f /usr/bin/bash ]) && exec bash || exec sh\"\n";
+                shell.Write(Encoding.UTF8.GetBytes(execCmd));
+                shell.Flush();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to exec into container {ContainerId}", containerId);
+            }
+        }
+
         _sessions[newId] = session;
         return session;
+    }
+
+    private static string SanitizeContainerId(string id)
+    {
+        var clean = id.Trim();
+        foreach (var c in clean)
+        {
+            if (!char.IsLetterOrDigit(c) && c != '-' && c != '_' && c != '.')
+            {
+                throw new ArgumentException("Invalid container identifier");
+            }
+        }
+        return clean;
     }
 
     public TerminalSession? GetSession(string sessionId)
@@ -204,9 +237,9 @@ public class TerminalSessionManager : ITerminalSessionManager
         }
     }
 
-    public async Task HandleWebSocketAsync(WebSocket webSocket, HostEntity host, string? sessionId, uint cols, uint rows)
+    public async Task HandleWebSocketAsync(WebSocket webSocket, HostEntity host, string? sessionId, uint cols, uint rows, string? containerId = null)
     {
-        var session = GetOrCreateSession(host, sessionId, cols, rows);
+        var session = GetOrCreateSession(host, sessionId, cols, rows, containerId);
         session.AttachSocket(webSocket);
 
         try

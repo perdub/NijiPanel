@@ -12,7 +12,11 @@ import {
   Menu,
   X,
   ChevronDown,
-  Plus
+  Plus,
+  ShoppingBag,
+  Cpu,
+  Bell,
+  Shield
 } from 'lucide-react';
 import { Host } from '../types';
 import { DoritoLogo } from './DoritoLogo';
@@ -25,6 +29,8 @@ interface NavbarProps {
   setSelectedHostId: (id: string) => void;
   onOpenAddHost: () => void;
   onOpenSettings: () => void;
+  onOpenNotifications?: () => void;
+  unreadCount?: number;
   onLogout: () => void;
   username?: string;
 }
@@ -37,6 +43,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   setSelectedHostId,
   onOpenAddHost,
   onOpenSettings,
+  onOpenNotifications,
+  unreadCount = 0,
   onLogout,
   username
 }) => {
@@ -47,11 +55,14 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const navItems = [
     { id: 'hosts', label: 'Hosts', icon: Server, requiresHost: false },
+    { id: 'services', label: 'Services', icon: Cpu, requiresHost: true },
+    { id: 'appstore', label: 'App Store', icon: ShoppingBag, requiresHost: true },
     { id: 'docker', label: 'Containers', icon: Layers, requiresHost: true },
     { id: 'compose', label: 'Compose', icon: FolderGit2, requiresHost: true },
     { id: 'files', label: 'File Manager', icon: FolderTree, requiresHost: true },
     { id: 'terminal', label: 'Terminal', icon: Terminal, requiresHost: true },
     { id: 'ports', label: 'Port Registry', icon: Network, requiresHost: true },
+    { id: 'firewall', label: 'Firewall', icon: Shield, requiresHost: true },
     { id: 'utils', label: 'Utils', icon: Wrench, requiresHost: false },
   ];
 
@@ -193,6 +204,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="text-dorito-400 font-semibold">140 BPM</span>
               <span>🥁</span>
             </div>
+
+            {/* Notification Center Bell with Red Badge */}
+            <button
+              onClick={onOpenNotifications}
+              className="relative p-2 rounded-lg text-carbon-400 hover:text-dorito-500 hover:bg-carbon-800 transition-colors"
+              title="Notification Center & Alerts"
+            >
+              <Bell className="w-4 h-4" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-rose-500 text-[9px] font-mono font-bold text-white shadow-sm ring-2 ring-carbon-900 animate-pulse">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
 
             <button
               onClick={onOpenSettings}

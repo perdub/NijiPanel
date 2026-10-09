@@ -53,3 +53,25 @@ public class SshTunnelEntity
     public int RemotePort { get; set; }
     public bool IsActive { get; set; }
 }
+
+public class NotificationEntity
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string? HostId { get; set; }
+    public string Title { get; set; } = "";
+    public string Message { get; set; } = "";
+    public string Severity { get; set; } = "info"; // info, warning, error
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public bool IsRead { get; set; }
+}
+
+public class PasskeyEntity
+{
+    public string Id { get; set; } = ""; // base64url credentialId
+    public string UserId { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string PublicKey { get; set; } = "";
+    public long Counter { get; set; }
+    public string CredentialType { get; set; } = "public-key";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}

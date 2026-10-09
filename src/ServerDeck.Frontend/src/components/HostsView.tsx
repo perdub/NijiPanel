@@ -16,11 +16,17 @@ import {
   Edit,
   Shield,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Zap,
+  Gauge,
+  TrendingUp,
+  X,
+  Play
 } from 'lucide-react';
-import { Host, HostStats } from '../types';
+import { Host, HostStats, HostMetricsHistory, BenchmarkResult } from '../types';
 import { api } from '../api';
 import { DoritoLogo } from './DoritoLogo';
+import { SparklineChart } from './SparklineChart';
 
 interface HostsViewProps {
   hosts: Host[];
@@ -39,6 +45,10 @@ export const HostsView: React.FC<HostsViewProps> = ({
 }) => {
   const [statsMap, setStatsMap] = useState<Record<string, HostStats>>({});
   const [loadingStats, setLoadingStats] = useState<Record<string, boolean>>({});
+  const [metricsMap, setMetricsMap] = useState<Record<string, HostMetricsHistory>>({});
+  const [benchmarkingHostId, setBenchmarkingHostId] = useState<string | null>(null);
+  const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkResult | null>(null);
+  const [benchmarkError, setBenchmarkError] = useState<string | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editHost, setEditHost] = useState<Host | null>(null);
   const [setupCommandModalOpen, setSetupCommandModalOpen] = useState(false);
@@ -53,14 +63,42 @@ export const HostsView: React.FC<HostsViewProps> = ({
   const [formCredential, setFormCredential] = useState('');
   const [formPassphrase, setFormPassphrase] = useState('');
   const [formNotes, setFormNotes] = useState('');
+  const [formHardening, setFormHardening] = useState(false);
+  const [hardeningHostId, setHardeningHostId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const handleRandomizePort = async (host: Host) => {
+    if (!confirm(`Harden host '${host.name}' by changing SSH port ${host.port} to a random high port (20000-59000)?\n\nNijiPanel will test sshd syntax ('sshd -t'), open the new port in UFW/iptables, and reload SSH.`)) {
+      return;
+    }
+    setHardeningHostId(host.id);
+    try {
+      const res = await api.hosts.randomizePort(host.id);
+      if (res.success) {
+        alert(`Port hardened successfully!\nOld Port: ${res.oldPort}\nNew Port: ${res.newPort}\n\n${res.message}`);
+        onRefresh();
+      } else {
+        alert(`Hardening failed: ${res.message}\n${res.details || ''}`);
+      }
+    } catch (err: any) {
+      alert(`Hardening failed: ${err.message}`);
+    } finally {
+      setHardeningHostId(null);
+    }
+  };
 
   const fetchHostStats = async (hostId: string) => {
     setLoadingStats((prev) => ({ ...prev, [hostId]: true }));
     try {
-      const stats = await api.hosts.stats(hostId);
+      const [stats, history] = await Promise.all([
+        api.hosts.stats(hostId),
+        api.hosts.metricsHistory(hostId).catch(() => null),
+      ]);
       setStatsMap((prev) => ({ ...prev, [hostId]: stats }));
+      if (history) {
+        setMetricsMap((prev) => ({ ...prev, [hostId]: history }));
+      }
     } catch {
       setStatsMap((prev) => ({
         ...prev,
@@ -68,6 +106,19 @@ export const HostsView: React.FC<HostsViewProps> = ({
       }));
     } finally {
       setLoadingStats((prev) => ({ ...prev, [hostId]: false }));
+    }
+  };
+
+  const handleRunBenchmark = async (host: Host) => {
+    setBenchmarkingHostId(host.id);
+    setBenchmarkError(null);
+    try {
+      const res = await api.hosts.benchmark(host.id);
+      setBenchmarkResult(res);
+    } catch (err: any) {
+      setBenchmarkError(err.message || 'Benchmark execution failed');
+    } finally {
+      setBenchmarkingHostId(null);
     }
   };
 
@@ -87,6 +138,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
     setFormCredential('');
     setFormPassphrase('');
     setFormNotes('');
+    setFormHardening(false);
     setFormError(null);
     setAddModalOpen(true);
   };
@@ -101,6 +153,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
     setFormCredential('');
     setFormPassphrase('');
     setFormNotes(h.notes || '');
+    setFormHardening(false);
     setFormError(null);
     setAddModalOpen(true);
   };
@@ -136,8 +189,16 @@ export const HostsView: React.FC<HostsViewProps> = ({
           passphrase: formPassphrase || undefined,
           notes: formNotes,
         });
+
+        if (formHardening) {
+          try {
+            await api.hosts.randomizePort(editHost.id);
+          } catch (hErr: any) {
+            console.warn('Post-update hardening error', hErr);
+          }
+        }
       } else {
-        await api.hosts.create({
+        const created = await api.hosts.create({
           name: formName,
           host: formHost,
           port: formPort,
@@ -146,7 +207,16 @@ export const HostsView: React.FC<HostsViewProps> = ({
           credential: formCredential,
           passphrase: formPassphrase,
           notes: formNotes,
-        });
+          hardeningRandomPort: formHardening,
+        } as any);
+
+        if (formHardening && created?.id) {
+          try {
+            await api.hosts.randomizePort(created.id);
+          } catch (hErr: any) {
+            console.warn('Post-create hardening error', hErr);
+          }
+        }
       }
       setAddModalOpen(false);
       onRefresh();
@@ -290,6 +360,14 @@ export const HostsView: React.FC<HostsViewProps> = ({
                       <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-dorito-500' : ''}`} />
                     </button>
                     <button
+                      onClick={() => handleRandomizePort(host)}
+                      disabled={hardeningHostId === host.id}
+                      className="p-1.5 rounded-lg text-carbon-400 hover:text-dorito-400 hover:bg-carbon-800 transition-colors disabled:opacity-50"
+                      title="Hardening: Randomize SSH port (20000-59000)"
+                    >
+                      <Shield className={`w-3.5 h-3.5 ${hardeningHostId === host.id ? 'animate-spin text-dorito-500' : ''}`} />
+                    </button>
+                    <button
                       onClick={() => handleOpenEdit(host)}
                       className="p-1.5 rounded-lg text-carbon-400 hover:text-dorito-400 hover:bg-carbon-800 transition-colors"
                       title="Edit host parameters"
@@ -322,83 +400,143 @@ export const HostsView: React.FC<HostsViewProps> = ({
                   </span>
                 </div>
 
-                {/* Live Dashboards: Nijika Dorito Yellow & Warm Amber Gauges */}
-                <div className="space-y-2.5 py-3 border-y border-carbon-700/80 mb-3.5">
-                  {/* CPU Gauge (Signature Dorito Yellow) */}
-                  <div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-carbon-400 flex items-center gap-1.5 font-mono text-[11px]">
-                        <Cpu className="w-3.5 h-3.5 text-dorito-500" /> CPU
-                      </span>
-                      <span className="font-mono text-dorito-400 font-semibold text-xs">
-                        {stats?.cpuUsage || '0%'}
-                      </span>
-                    </div>
-                    <div className="w-full h-1.5 bg-carbon-800 rounded-none overflow-hidden border border-carbon-700/50">
-                      <div
-                        className="h-full bg-dorito-500 transition-all duration-500 shadow-[0_0_8px_rgba(255,209,0,0.5)]"
-                        style={{ width: `${Math.min(100, Math.max(0, stats?.cpuPercent ?? 5))}%` }}
-                      />
-                    </div>
-                  </div>
+                {/* Live Dashboards: Beszel-Style Gauges & Sparkline Area Charts */}
+                {(() => {
+                  const metrics = metricsMap[host.id];
+                  const cpuHistory = metrics?.history?.map((h) => h.cpuPercent) || [];
+                  const ramHistory = metrics?.history?.map((h) => h.ramPercent) || [];
+                  const rxHistory = metrics?.history?.map((h) => h.netRxKbps) || [];
+                  const txHistory = metrics?.history?.map((h) => h.netTxKbps) || [];
+                  const prediction = metrics?.prediction;
 
-                  {/* RAM Gauge (Warm Amber) */}
-                  <div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-carbon-400 flex items-center gap-1.5 font-mono text-[11px]">
-                        <Activity className="w-3.5 h-3.5 text-dorito-600" /> RAM
-                      </span>
-                      <span className="font-mono text-amber-400 font-semibold text-xs">
-                        {stats?.memoryUsage || '0 GB'}
-                      </span>
-                    </div>
-                    <div className="w-full h-1.5 bg-carbon-800 rounded-none overflow-hidden border border-carbon-700/50">
-                      <div
-                        className="h-full bg-dorito-600 transition-all duration-500"
-                        style={{ width: `${Math.min(100, Math.max(0, stats?.memoryPercent ?? 10))}%` }}
-                      />
-                    </div>
-                  </div>
+                  return (
+                    <div className="space-y-3 py-3 border-y border-carbon-700/80 mb-3.5">
+                      {/* CPU Metric & Sparkline */}
+                      <div>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-carbon-400 flex items-center gap-1.5 font-mono text-[11px]">
+                            <Cpu className="w-3.5 h-3.5 text-dorito-500" /> CPU
+                          </span>
+                          <span className="font-mono text-dorito-400 font-semibold text-xs">
+                            {stats?.cpuUsage || '0%'}
+                          </span>
+                        </div>
+                        <SparklineChart
+                          data={cpuHistory}
+                          color="#ffd100"
+                          height={32}
+                          minVal={0}
+                          maxVal={100}
+                          unit="%"
+                        />
+                      </div>
 
-                  {/* Disk Gauge (Dorito Spice Orange) */}
-                  <div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-carbon-400 flex items-center gap-1.5 font-mono text-[11px]">
-                        <HardDrive className="w-3.5 h-3.5 text-amber-500" /> Disk (/)
-                      </span>
-                      <span className="font-mono text-orange-400 font-semibold text-xs">
-                        {stats?.diskUsage || '0 GB'}
-                      </span>
-                    </div>
-                    <div className="w-full h-1.5 bg-carbon-800 rounded-none overflow-hidden border border-carbon-700/50">
-                      <div
-                        className="h-full bg-amber-600 transition-all duration-500"
-                        style={{ width: `${Math.min(100, Math.max(0, stats?.diskPercent ?? 15))}%` }}
-                      />
-                    </div>
-                  </div>
+                      {/* RAM Metric & Sparkline */}
+                      <div>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-carbon-400 flex items-center gap-1.5 font-mono text-[11px]">
+                            <Activity className="w-3.5 h-3.5 text-dorito-600" /> RAM
+                          </span>
+                          <span className="font-mono text-amber-400 font-semibold text-xs">
+                            {stats?.memoryUsage || '0 GB'}
+                          </span>
+                        </div>
+                        <SparklineChart
+                          data={ramHistory}
+                          color="#f59e0b"
+                          height={32}
+                          minVal={0}
+                          maxVal={100}
+                          unit="%"
+                        />
+                      </div>
 
-                  {/* Network Bandwidth & Load Average */}
-                  <div className="pt-1 flex items-center justify-between text-[11px] font-mono text-carbon-400">
-                    <span className="flex items-center gap-1 truncate text-carbon-300">
-                      <Wifi className="w-3 h-3 text-dorito-400" />
-                      {stats?.networkUsage || 'RX: 0 GB | TX: 0 GB'}
-                    </span>
-                    <span className="font-mono text-carbon-400 text-[10px]">
-                      LA: <span className="text-carbon-200">{stats?.loadAverage || '0.00'}</span>
-                    </span>
-                  </div>
-                </div>
+                      {/* Disk Metric & Predictive Fill Plate */}
+                      <div>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-carbon-400 flex items-center gap-1.5 font-mono text-[11px]">
+                            <HardDrive className="w-3.5 h-3.5 text-amber-500" /> Disk (/)
+                          </span>
+                          <span className="font-mono text-orange-400 font-semibold text-xs">
+                            {stats?.diskUsage || '0 GB'}
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 bg-carbon-800 rounded-none overflow-hidden border border-carbon-700/50">
+                          <div
+                            className="h-full bg-amber-600 transition-all duration-500"
+                            style={{ width: `${Math.min(100, Math.max(0, stats?.diskPercent ?? 15))}%` }}
+                          />
+                        </div>
+
+                        {/* Beszel-Style Disk Fill Prediction Plate */}
+                        <div
+                          className={`mt-2 px-2.5 py-1 rounded text-[10px] font-mono border flex items-center justify-between transition-colors ${
+                            prediction?.isStable
+                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                              : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                          }`}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <TrendingUp className="w-3 h-3" />
+                            Disk Fill Prediction:
+                          </span>
+                          <span className="font-bold">
+                            {prediction?.formattedPrediction || 'Disk stable'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Network Dual Sparkline (RX Cyan / TX Emerald) */}
+                      <div>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-carbon-400 flex items-center gap-1.5 font-mono text-[11px]">
+                            <Wifi className="w-3.5 h-3.5 text-cyan-400" /> Network I/O
+                          </span>
+                          <span className="font-mono text-carbon-400 text-[10px]">
+                            LA: <span className="text-carbon-200">{stats?.loadAverage || '0.00'}</span>
+                          </span>
+                        </div>
+                        <SparklineChart
+                          data={rxHistory}
+                          secondaryData={txHistory}
+                          color="#06b6d4"
+                          secondaryColor="#10b981"
+                          height={30}
+                          unit=" KB/s"
+                        />
+                        <div className="pt-1 flex items-center justify-between text-[10px] font-mono text-carbon-400">
+                          <span className="truncate text-carbon-300">
+                            {stats?.networkUsage || 'RX: 0 GB | TX: 0 GB'}
+                          </span>
+                          <span className="text-carbon-500">RX cyan / TX emerald</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Navigation Action Buttons: Carbon Style */}
-              <div className="grid grid-cols-3 gap-2 pt-1 font-mono">
+              <div className="grid grid-cols-5 gap-1.5 pt-1 font-mono">
+                <button
+                  onClick={() => {
+                    onSelectHost(host.id);
+                    onOpenTab('services', host.id);
+                  }}
+                  className="flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-xs font-medium text-carbon-200 hover:text-cyan-400 hover:border-cyan-500/40 transition-colors"
+                  title="Systemd, Users & OS Updates"
+                >
+                  <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Services</span>
+                </button>
+
                 <button
                   onClick={() => {
                     onSelectHost(host.id);
                     onOpenTab('docker', host.id);
                   }}
-                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-xs font-medium text-carbon-200 hover:text-dorito-400 hover:border-dorito-500/40 transition-colors"
+                  className="flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-xs font-medium text-carbon-200 hover:text-dorito-400 hover:border-dorito-500/40 transition-colors"
+                  title="Docker Containers"
                 >
                   <Layers className="w-3.5 h-3.5 text-dorito-500" />
                   <span>Docker</span>
@@ -409,7 +547,8 @@ export const HostsView: React.FC<HostsViewProps> = ({
                     onSelectHost(host.id);
                     onOpenTab('files', host.id);
                   }}
-                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-xs font-medium text-carbon-200 hover:text-amber-400 hover:border-amber-500/40 transition-colors"
+                  className="flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-xs font-medium text-carbon-200 hover:text-amber-400 hover:border-amber-500/40 transition-colors"
+                  title="File Manager"
                 >
                   <FolderTree className="w-3.5 h-3.5 text-amber-500" />
                   <span>Files</span>
@@ -420,10 +559,25 @@ export const HostsView: React.FC<HostsViewProps> = ({
                     onSelectHost(host.id);
                     onOpenTab('terminal', host.id);
                   }}
-                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-xs font-medium text-carbon-200 hover:text-emerald-400 hover:border-emerald-500/40 transition-colors"
+                  className="flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-xs font-medium text-carbon-200 hover:text-emerald-400 hover:border-emerald-500/40 transition-colors"
+                  title="SSH Interactive Terminal"
                 >
                   <Terminal className="w-3.5 h-3.5 text-emerald-400" />
                   <span>SSH</span>
+                </button>
+
+                <button
+                  onClick={() => handleRunBenchmark(host)}
+                  disabled={benchmarkingHostId === host.id}
+                  className="flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-xs font-medium text-dorito-400 hover:border-dorito-500/40 transition-colors disabled:opacity-50"
+                  title="Run Fast Hardware Benchmark"
+                >
+                  {benchmarkingHostId === host.id ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-dorito-500" />
+                  ) : (
+                    <Zap className="w-3.5 h-3.5 text-dorito-500" />
+                  )}
+                  <span>{benchmarkingHostId === host.id ? 'Testing' : 'Bench'}</span>
                 </button>
               </div>
             </div>
@@ -591,6 +745,25 @@ export const HostsView: React.FC<HostsViewProps> = ({
                 />
               </div>
 
+              <div className="pt-1">
+                <label className="flex items-center gap-2.5 cursor-pointer p-3 rounded-xl bg-carbon-850 border border-carbon-700/80 hover:border-dorito-500/40 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={formHardening}
+                    onChange={(e) => setFormHardening(e.target.checked)}
+                    className="w-4 h-4 rounded bg-carbon-800 border-carbon-700 text-dorito-500 focus:ring-0"
+                  />
+                  <div>
+                    <span className="text-xs text-white font-mono font-bold block">
+                      Hardening: Auto-switch SSH port to random high port (20000-59000)
+                    </span>
+                    <span className="text-[10px] text-carbon-400 font-mono block">
+                      Tests config with sshd -t, opens port in UFW/iptables, and restarts sshd.
+                    </span>
+                  </div>
+                </label>
+              </div>
+
               <div className="flex justify-end gap-3 pt-3">
                 <button
                   type="button"
@@ -653,6 +826,128 @@ export const HostsView: React.FC<HostsViewProps> = ({
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Benchmark Results Scorecard Modal */}
+      {benchmarkResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-carbon-900 border border-carbon-700 rounded-2xl shadow-2xl p-6 relative overflow-hidden">
+            {/* Top Accent Strip */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-dorito-500 via-amber-500 to-emerald-500"></div>
+
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-dorito-500/10 border border-dorito-500/30 text-dorito-400">
+                  <Zap className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white tracking-tight">
+                    Hardware Benchmark Scorecard
+                  </h3>
+                  <p className="text-xs font-mono text-carbon-400">
+                    Host: <span className="text-dorito-400 font-semibold">{benchmarkResult.hostName}</span>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setBenchmarkResult(null)}
+                className="p-1 rounded-lg text-carbon-400 hover:text-white hover:bg-carbon-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Score Ring / Health Hero Card */}
+            <div className="p-4 rounded-xl bg-carbon-850 border border-carbon-700 mb-4 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-mono text-carbon-400 uppercase tracking-wider">Overall Health Score</span>
+                <div className="text-3xl font-black text-white mt-0.5 tracking-tight flex items-baseline gap-1 font-mono">
+                  <span className={benchmarkResult.score >= 70 ? 'text-emerald-400' : 'text-amber-400'}>
+                    {benchmarkResult.score}
+                  </span>
+                  <span className="text-sm text-carbon-500 font-normal">/ 100</span>
+                </div>
+                <p className="text-[11px] font-mono text-carbon-400 mt-1">
+                  {benchmarkResult.score >= 80 ? '⚡ High-performance compute node' : benchmarkResult.score >= 50 ? '✓ Balanced standard server' : '⚠ Limited resource performance'}
+                </p>
+              </div>
+
+              <div className="w-16 h-16 rounded-full bg-carbon-800 border-2 border-dorito-500/40 flex items-center justify-center text-dorito-400 shadow-[0_0_15px_rgba(255,209,0,0.2)]">
+                <Gauge className="w-8 h-8 text-dorito-500" />
+              </div>
+            </div>
+
+            {/* Benchmark Metrics Grid */}
+            <div className="grid grid-cols-3 gap-3 mb-4 font-mono">
+              <div className="p-3 rounded-xl bg-carbon-850/70 border border-carbon-700">
+                <div className="flex items-center gap-1.5 text-carbon-400 text-[10px] uppercase mb-1">
+                  <HardDrive className="w-3 h-3 text-amber-500" /> Disk I/O
+                </div>
+                <div className="text-sm font-bold text-white truncate">
+                  {benchmarkResult.diskWriteFormatted}
+                </div>
+                <span className="text-[9px] text-carbon-500">256MB direct</span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-carbon-850/70 border border-carbon-700">
+                <div className="flex items-center gap-1.5 text-carbon-400 text-[10px] uppercase mb-1">
+                  <Cpu className="w-3 h-3 text-dorito-500" /> CPU Hash
+                </div>
+                <div className="text-sm font-bold text-white truncate">
+                  {benchmarkResult.cpuFormatted}
+                </div>
+                <span className="text-[9px] text-carbon-500">{benchmarkResult.cpuSha256Ops.toLocaleString()} ops</span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-carbon-850/70 border border-carbon-700">
+                <div className="flex items-center gap-1.5 text-carbon-400 text-[10px] uppercase mb-1">
+                  <Wifi className="w-3 h-3 text-cyan-400" /> Latency
+                </div>
+                <div className="text-sm font-bold text-white truncate">
+                  {benchmarkResult.pingFormatted}
+                </div>
+                <span className="text-[9px] text-carbon-500">Gateway ping</span>
+              </div>
+            </div>
+
+            {/* Auto-cleanup notification message */}
+            <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-mono text-emerald-400 flex items-center gap-2 mb-4">
+              <Check className="w-3.5 h-3.5 shrink-0" />
+              <span>Safe execution: All temporary files (/tmp/nijibench_*) were automatically purged.</span>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setBenchmarkResult(null)}
+                className="px-4 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs font-mono transition-colors shadow-md"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Benchmark Error Modal */}
+      {benchmarkError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-carbon-900 border border-rose-500/40 rounded-2xl shadow-2xl p-6 relative">
+            <div className="flex items-center gap-2.5 text-rose-400 mb-2">
+              <AlertCircle className="w-5 h-5" />
+              <h3 className="font-bold text-white">Benchmark Failed</h3>
+            </div>
+            <p className="text-xs font-mono text-carbon-300 mb-4">{benchmarkError}</p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setBenchmarkError(null)}
+                className="px-4 py-1.5 rounded-lg bg-carbon-800 hover:bg-carbon-750 text-carbon-200 text-xs font-mono transition-colors"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

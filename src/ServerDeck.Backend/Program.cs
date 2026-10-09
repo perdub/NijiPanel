@@ -23,6 +23,14 @@ builder.Services.AddScoped<IDirectTransferService, DirectTransferService>();
 builder.Services.AddScoped<IBackupService, BackupService>();
 builder.Services.AddScoped<IFileShareService, FileShareService>();
 builder.Services.AddScoped<ICronService, CronService>();
+builder.Services.AddScoped<ISystemdService, SystemdService>();
+builder.Services.AddScoped<ILinuxUserService, LinuxUserService>();
+builder.Services.AddScoped<IPackageUpdateService, PackageUpdateService>();
+builder.Services.AddSingleton<IMetricsHistoryService, MetricsHistoryService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IBenchmarkService, BenchmarkService>();
+builder.Services.AddScoped<IFirewallService, FirewallService>();
+builder.Services.AddSingleton<IPasskeyService, PasskeyService>();
 
 // JWT Authentication configuration
 var jwtSecret = builder.Configuration["JWT_SECRET"];
@@ -129,11 +137,55 @@ app.Map("/ws/terminal", async (HttpContext context, IHostService hostService, IT
     }
 
     var sessionId = context.Request.Query["sessionId"].ToString();
+    var containerId = context.Request.Query["containerId"].ToString();
     uint.TryParse(context.Request.Query["cols"], out var cols);
     uint.TryParse(context.Request.Query["rows"], out var rows);
 
     var ws = await context.WebSockets.AcceptWebSocketAsync();
-    await termManager.HandleWebSocketAsync(ws, host, string.IsNullOrEmpty(sessionId) ? null : sessionId, cols, rows);
+    await termManager.HandleWebSocketAsync(
+        ws,
+        host,
+        string.IsNullOrEmpty(sessionId) ? null : sessionId,
+        cols,
+        rows,
+        string.IsNullOrEmpty(containerId) ? null : containerId);
+});
+
+app.Map("/ws/docker-exec", async (HttpContext context, IHostService hostService, ITerminalSessionManager termManager) =>
+{
+    if (!context.WebSockets.IsWebSocketRequest)
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        return;
+    }
+
+    var hostId = context.Request.Query["hostId"].ToString();
+    if (string.IsNullOrEmpty(hostId))
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        return;
+    }
+
+    var host = await hostService.GetHostEntityAsync(hostId);
+    if (host == null)
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    var sessionId = context.Request.Query["sessionId"].ToString();
+    var containerId = context.Request.Query["containerId"].ToString();
+    uint.TryParse(context.Request.Query["cols"], out var cols);
+    uint.TryParse(context.Request.Query["rows"], out var rows);
+
+    var ws = await context.WebSockets.AcceptWebSocketAsync();
+    await termManager.HandleWebSocketAsync(
+        ws,
+        host,
+        string.IsNullOrEmpty(sessionId) ? null : sessionId,
+        cols,
+        rows,
+        string.IsNullOrEmpty(containerId) ? null : containerId);
 });
 
 // SPA fallback for frontend client-side routing

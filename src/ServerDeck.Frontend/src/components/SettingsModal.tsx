@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Key,
   Lock,
@@ -12,10 +12,16 @@ import {
   Download,
   Upload,
   ArrowRight,
-  Share2
+  Share2,
+  Bell,
+  Send,
+  Fingerprint,
+  Trash2,
+  ShieldCheck,
+  KeyRound
 } from 'lucide-react';
-import { api } from '../api';
-import { MasterKey } from '../types';
+import { api, bufferToBase64Url, base64UrlToBuffer } from '../api';
+import { MasterKey, Passkey, AlertSettings, TestAlertResult } from '../types';
 import { DoritoLogo } from './DoritoLogo';
 
 interface SettingsModalProps {
@@ -33,7 +39,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onMasterKeyUpdated,
   onBackupRestored,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'key' | 'password' | 'backup'>('key');
+  const [activeSubTab, setActiveSubTab] = useState<'key' | 'password' | 'alerts' | 'passkeys' | 'backup'>('key');
   const [copiedKey, setCopiedKey] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
 
@@ -43,6 +49,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passSaving, setPassSaving] = useState(false);
   const [passMessage, setPassMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Alerts & Notifications States
+  const [tgBotToken, setTgBotToken] = useState('');
+  const [tgChatId, setTgChatId] = useState('');
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [alertsEnabled, setAlertsEnabled] = useState(false);
+  const [savingAlerts, setSavingAlerts] = useState(false);
+  const [alertSaveMsg, setAlertSaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [testingAlert, setTestingAlert] = useState(false);
+  const [alertTestResult, setAlertTestResult] = useState<TestAlertResult | null>(null);
+
+  // Passkeys States
+  const [passkeys, setPasskeys] = useState<Passkey[]>([]);
+  const [passkeysLoading, setPasskeysLoading] = useState(false);
+  const [passkeyRegistering, setPasskeyRegistering] = useState(false);
+  const [passkeyError, setPasskeyError] = useState<string | null>(null);
 
   // Backup & Cloud Share States
   const [cloudExporting, setCloudExporting] = useState(false);
@@ -64,6 +86,150 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [localPassphrase, setLocalPassphrase] = useState('');
   const [localExporting, setLocalExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (activeSubTab === 'alerts') loadAlertSettings();
+      if (activeSubTab === 'passkeys') loadPasskeys();
+    }
+  }, [isOpen, activeSubTab]);
+
+  const loadAlertSettings = async () => {
+    try {
+      const res = await api.notifications.getSettings();
+      setTgBotToken(res.telegramBotToken || '');
+      setTgChatId(res.telegramChatId || '');
+      setWebhookUrl(res.webhookUrl || '');
+      setAlertsEnabled(res.alertsEnabled ?? false);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleSaveAlerts = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingAlerts(true);
+    setAlertSaveMsg(null);
+    try {
+      await api.notifications.saveSettings({
+        telegramBotToken: tgBotToken,
+        telegramChatId: tgChatId,
+        webhookUrl,
+        alertsEnabled,
+      });
+      setAlertSaveMsg({ type: 'success', text: 'Alert settings saved successfully!' });
+      setTimeout(() => setAlertSaveMsg(null), 3000);
+    } catch (err: any) {
+      setAlertSaveMsg({ type: 'error', text: err.message || 'Failed to save alert settings' });
+    } finally {
+      setSavingAlerts(false);
+    }
+  };
+
+  const handleTestAlert = async () => {
+    setTestingAlert(true);
+    setAlertTestResult(null);
+    try {
+      const res = await api.notifications.test({
+        telegramBotToken: tgBotToken,
+        telegramChatId: tgChatId,
+        webhookUrl,
+      });
+      setAlertTestResult(res);
+    } catch (err: any) {
+      alert(`Test alert error: ${err.message}`);
+    } finally {
+      setTestingAlert(false);
+    }
+  };
+
+  const loadPasskeys = async () => {
+    setPasskeysLoading(true);
+    try {
+      const list = await api.passkey.list();
+      setPasskeys(list);
+    } catch {
+      // ignore
+    } finally {
+      setPasskeysLoading(false);
+    }
+  };
+
+  const handleRegisterPasskey = async () => {
+    if (!window.PublicKeyCredential) {
+      alert('Passkeys / WebAuthn is not supported in this browser.');
+      return;
+    }
+    setPasskeyRegistering(true);
+    setPasskeyError(null);
+    try {
+      const ch = await api.passkey.registerChallenge();
+      const challengeBuffer = base64UrlToBuffer(ch.challenge);
+      const userIdBuffer = new TextEncoder().encode(ch.userId);
+
+      const credential = (await navigator.credentials.create({
+        publicKey: {
+          challenge: challengeBuffer,
+          rp: {
+            name: ch.rpName || 'NijiPanel',
+            id: ch.rpId || window.location.hostname,
+          },
+          user: {
+            id: userIdBuffer,
+            name: ch.userName,
+            displayName: ch.userDisplayName,
+          },
+          pubKeyCredParams: [
+            { alg: -7, type: 'public-key' },
+            { alg: -257, type: 'public-key' },
+          ],
+          authenticatorSelection: {
+            residentKey: 'preferred',
+            userVerification: 'preferred',
+          },
+          timeout: ch.timeout || 60000,
+          attestation: 'none',
+        },
+      })) as PublicKeyCredential;
+
+      if (!credential) {
+        throw new Error('No credential was returned from authenticator');
+      }
+
+      const rawResp = credential.response as AuthenticatorAttestationResponse;
+      const clientDataJson = bufferToBase64Url(rawResp.clientDataJSON);
+      const attestationObject = bufferToBase64Url(rawResp.attestationObject);
+      const credentialId = bufferToBase64Url(credential.rawId);
+
+      const deviceName = prompt('Enter a friendly name for this Passkey device:', 'My Security Key') || 'Passkey Device';
+
+      await api.passkey.registerVerify({
+        name: deviceName,
+        credentialId,
+        clientDataJson,
+        attestationObject,
+      });
+
+      alert('Passkey registered successfully!');
+      loadPasskeys();
+    } catch (err: any) {
+      if (err.name !== 'NotAllowedError') {
+        setPasskeyError(err.message || 'Passkey registration error');
+      }
+    } finally {
+      setPasskeyRegistering(false);
+    }
+  };
+
+  const handleDeletePasskey = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this Passkey?')) return;
+    try {
+      await api.passkey.delete(id);
+      loadPasskeys();
+    } catch (err: any) {
+      alert(`Failed to delete passkey: ${err.message}`);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -227,6 +393,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             Change Password
           </button>
           <button
+            onClick={() => setActiveSubTab('alerts')}
+            className={`pb-2.5 border-b-2 transition-colors ${
+              activeSubTab === 'alerts'
+                ? 'border-dorito-500 text-dorito-400 font-bold'
+                : 'border-transparent text-carbon-400 hover:text-white'
+            }`}
+          >
+            Alerts & Notifications
+          </button>
+          <button
+            onClick={() => setActiveSubTab('passkeys')}
+            className={`pb-2.5 border-b-2 transition-colors ${
+              activeSubTab === 'passkeys'
+                ? 'border-dorito-500 text-dorito-400 font-bold'
+                : 'border-transparent text-carbon-400 hover:text-white'
+            }`}
+          >
+            Passkeys
+          </button>
+          <button
             onClick={() => setActiveSubTab('backup')}
             className={`pb-2.5 border-b-2 transition-colors ${
               activeSubTab === 'backup'
@@ -234,7 +420,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 : 'border-transparent text-carbon-400 hover:text-white'
             }`}
           >
-            Backup & Cloud Migration
+            Backup & Migration
           </button>
         </div>
 
@@ -498,6 +684,195 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 4: Alerts & Notifications */}
+        {activeSubTab === 'alerts' && (
+          <div className="space-y-4 font-mono text-xs">
+            <div className="flex items-center justify-between pb-2 border-b border-carbon-800">
+              <div>
+                <h4 className="font-bold text-white text-sm">External Alert Integrations</h4>
+                <p className="text-[11px] text-carbon-400">
+                  Dispatch instant notifications to Telegram or a custom HTTP Webhook
+                </p>
+              </div>
+              <Bell className="w-5 h-5 text-dorito-500" />
+            </div>
+
+            {alertSaveMsg && (
+              <div
+                className={`p-3 rounded-xl border flex items-center gap-2 text-xs ${
+                  alertSaveMsg.type === 'success'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                    : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                }`}
+              >
+                {alertSaveMsg.type === 'success' ? <Check className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                <span>{alertSaveMsg.text}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveAlerts} className="space-y-3">
+              <div>
+                <label className="block text-carbon-300 mb-1">Telegram Bot Token</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 123456789:ABCdefGHIjklMNOpqrSTUvwxYZ"
+                  value={tgBotToken}
+                  onChange={(e) => setTgBotToken(e.target.value)}
+                  className="w-full bg-carbon-850 border border-carbon-700 rounded-lg px-3 py-2 text-white placeholder-carbon-500 focus:outline-none focus:border-dorito-500 text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-carbon-300 mb-1">Telegram Chat ID</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 987654321 or -100123456789"
+                  value={tgChatId}
+                  onChange={(e) => setTgChatId(e.target.value)}
+                  className="w-full bg-carbon-850 border border-carbon-700 rounded-lg px-3 py-2 text-white placeholder-carbon-500 focus:outline-none focus:border-dorito-500 text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-carbon-300 mb-1">Generic Webhook URL</label>
+                <input
+                  type="url"
+                  placeholder="https://your-webhook-endpoint.com/api/alerts"
+                  value={webhookUrl}
+                  onChange={(e) => setWebhookUrl(e.target.value)}
+                  className="w-full bg-carbon-850 border border-carbon-700 rounded-lg px-3 py-2 text-white placeholder-carbon-500 focus:outline-none focus:border-dorito-500 text-xs"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="enableAlertsCheck"
+                  checked={alertsEnabled}
+                  onChange={(e) => setAlertsEnabled(e.target.checked)}
+                  className="rounded bg-carbon-800 border-carbon-700 text-dorito-500 focus:ring-0"
+                />
+                <label htmlFor="enableAlertsCheck" className="text-carbon-200 cursor-pointer select-none">
+                  Enable active external notifications dispatch
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-carbon-800">
+                <button
+                  type="button"
+                  onClick={handleTestAlert}
+                  disabled={testingAlert}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-carbon-800 hover:bg-carbon-700 text-dorito-400 font-semibold border border-carbon-700 transition-colors disabled:opacity-40"
+                >
+                  <Send className={`w-3.5 h-3.5 ${testingAlert ? 'animate-bounce' : ''}`} />
+                  <span>{testingAlert ? 'Testing...' : 'Test Alert'}</span>
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={savingAlerts}
+                  className="px-4 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold transition-colors shadow-md disabled:opacity-40"
+                >
+                  {savingAlerts ? 'Saving...' : 'Save Settings'}
+                </button>
+              </div>
+            </form>
+
+            {alertTestResult && (
+              <div className="p-3 rounded-xl bg-carbon-850 border border-carbon-700 space-y-2 mt-3">
+                <span className="text-[10px] text-carbon-400 uppercase font-bold">Integration Test Results</span>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-carbon-300">Telegram Bot:</span>
+                  <span className={alertTestResult.telegramSuccess ? 'text-emerald-400 font-bold' : 'text-rose-400'}>
+                    {alertTestResult.telegramSuccess ? '✓ Delivered' : alertTestResult.telegramError || 'Failed'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-carbon-300">Generic Webhook:</span>
+                  <span className={alertTestResult.webhookSuccess ? 'text-emerald-400 font-bold' : 'text-rose-400'}>
+                    {alertTestResult.webhookSuccess ? '✓ Delivered' : alertTestResult.webhookError || 'Failed'}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 5: Passkeys (WebAuthn) */}
+        {activeSubTab === 'passkeys' && (
+          <div className="space-y-4 font-mono text-xs">
+            <div className="flex items-start justify-between pb-2 border-b border-carbon-800">
+              <div>
+                <h4 className="font-bold text-white text-sm">Passkeys & WebAuthn Credentials</h4>
+                <p className="text-[11px] text-carbon-400">
+                  Sign in without passwords using Touch ID, Face ID, Windows Hello, or YubiKey
+                </p>
+              </div>
+              <Fingerprint className="w-5 h-5 text-dorito-500" />
+            </div>
+
+            {passkeyError && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-2 text-xs text-rose-400">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{passkeyError}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between items-center">
+              <span className="text-carbon-300 text-xs">
+                Registered Passkeys ({passkeys.length})
+              </span>
+              <button
+                onClick={handleRegisterPasskey}
+                disabled={passkeyRegistering}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold transition-colors shadow-md disabled:opacity-50"
+              >
+                <Fingerprint className="w-4 h-4" />
+                <span>{passkeyRegistering ? 'Registering...' : 'Register New Passkey'}</span>
+              </button>
+            </div>
+
+            {/* List of registered passkeys */}
+            <div className="rounded-xl border border-carbon-700 bg-carbon-850 overflow-hidden divide-y divide-carbon-800">
+              {passkeysLoading ? (
+                <div className="p-6 text-center text-carbon-500 text-xs">Loading passkeys...</div>
+              ) : passkeys.length === 0 ? (
+                <div className="p-8 text-center text-carbon-500 space-y-1">
+                  <KeyRound className="w-8 h-8 mx-auto opacity-30 text-dorito-500 mb-2" />
+                  <p className="text-xs text-carbon-300 font-bold">No Passkeys registered yet</p>
+                  <p className="text-[11px] text-carbon-500 font-sans">
+                    Pair your device or hardware security key for fast, passwordless 1-tap sign in.
+                  </p>
+                </div>
+              ) : (
+                passkeys.map((pk) => (
+                  <div key={pk.id} className="p-3 flex items-center justify-between hover:bg-carbon-800/60 transition-colors">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-1.5 rounded-lg bg-carbon-800 text-dorito-400">
+                        <Fingerprint className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-white text-xs">{pk.name}</div>
+                        <div className="text-[10px] text-carbon-500">
+                          Added: {new Date(pk.createdAt).toLocaleDateString()} {new Date(pk.createdAt).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleDeletePasskey(pk.id)}
+                      className="p-1.5 rounded-lg text-carbon-500 hover:text-rose-400 hover:bg-carbon-700 transition-colors"
+                      title="Delete Passkey"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}

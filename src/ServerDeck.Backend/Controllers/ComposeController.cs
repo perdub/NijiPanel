@@ -41,6 +41,45 @@ public class ComposeController : ControllerBase
         }
     }
 
+    [HttpGet("details")]
+    public async Task<ActionResult<ComposeStackDetailDto>> GetStackDetails(string hostId, [FromQuery] string filePath)
+    {
+        var host = await GetHostOrNotFoundAsync(hostId);
+        if (host == null) return NotFound(new { error = "Host not found" });
+
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return BadRequest(new { error = "FilePath is required" });
+        }
+
+        try
+        {
+            var details = await _dockerService.GetComposeStackDetailsAsync(host, filePath);
+            return Ok(details);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("validate")]
+    public async Task<ActionResult<ComposeValidateResponse>> ValidateCompose(string hostId, [FromBody] ComposeValidateRequest request)
+    {
+        var host = await GetHostOrNotFoundAsync(hostId);
+        if (host == null) return NotFound(new { error = "Host not found" });
+
+        try
+        {
+            var res = await _dockerService.ValidateComposeAsync(host, request.FilePath, request.ComposeYaml);
+            return Ok(res);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpPost("action")]
     public async Task<ActionResult<ComposeActionResponse>> ExecuteAction(string hostId, [FromBody] ComposeActionRequest request)
     {
