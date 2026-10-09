@@ -18,7 +18,8 @@ import {
   Fingerprint,
   Trash2,
   ShieldCheck,
-  KeyRound
+  KeyRound,
+  Wrench
 } from 'lucide-react';
 import { api, bufferToBase64Url, base64UrlToBuffer } from '../api';
 import { MasterKey, Passkey, AlertSettings, TestAlertResult } from '../types';
@@ -39,9 +40,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onMasterKeyUpdated,
   onBackupRestored,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'key' | 'password' | 'alerts' | 'passkeys' | 'backup'>('key');
+  const [activeSubTab, setActiveSubTab] = useState<'key' | 'password' | 'alerts' | 'passkeys' | 'backup' | 'provisioning'>('key');
   const [copiedKey, setCopiedKey] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+
+  // Bootstrap Provisioning States
+  const [bootstrapScript, setBootstrapScript] = useState('');
+  const [bootstrapEnabled, setBootstrapEnabled] = useState(false);
+  const [bootstrapLoading, setBootstrapLoading] = useState(false);
+  const [bootstrapSaving, setBootstrapSaving] = useState(false);
+  const [bootstrapMsg, setBootstrapMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Change password form
   const [currentPassword, setCurrentPassword] = useState('');
@@ -91,8 +99,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (isOpen) {
       if (activeSubTab === 'alerts') loadAlertSettings();
       if (activeSubTab === 'passkeys') loadPasskeys();
+      if (activeSubTab === 'provisioning') loadBootstrapSettings();
     }
   }, [isOpen, activeSubTab]);
+
+  const loadBootstrapSettings = async () => {
+    setBootstrapLoading(true);
+    try {
+      const res = await api.settings.getBootstrapScript();
+      setBootstrapScript(res.script || '');
+      setBootstrapEnabled(res.enabled ?? false);
+    } catch {
+      // ignore
+    } finally {
+      setBootstrapLoading(false);
+    }
+  };
+
+  const handleSaveBootstrap = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBootstrapSaving(true);
+    setBootstrapMsg(null);
+    try {
+      await api.settings.setBootstrapScript({
+        script: bootstrapScript,
+        enabled: bootstrapEnabled,
+      });
+      setBootstrapMsg({ type: 'success', text: 'Bootstrap provisioning settings saved successfully!' });
+      setTimeout(() => setBootstrapMsg(null), 3000);
+    } catch (err: any) {
+      setBootstrapMsg({ type: 'error', text: err.message || 'Failed to save bootstrap settings' });
+    } finally {
+      setBootstrapSaving(false);
+    }
+  };
 
   const loadAlertSettings = async () => {
     try {
@@ -421,6 +461,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             }`}
           >
             Backup & Migration
+          </button>
+          <button
+            onClick={() => setActiveSubTab('provisioning')}
+            className={`pb-2.5 border-b-2 transition-colors ${
+              activeSubTab === 'provisioning'
+                ? 'border-dorito-500 text-dorito-400 font-bold'
+                : 'border-transparent text-carbon-400 hover:text-white'
+            }`}
+          >
+            Host Provisioning
           </button>
         </div>
 
@@ -875,6 +925,121 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               )}
             </div>
           </div>
+        )}
+
+        {/* Tab 6: Host Provisioning / Default Packages */}
+        {activeSubTab === 'provisioning' && (
+          <form onSubmit={handleSaveBootstrap} className="space-y-4 font-mono text-xs">
+            <div className="flex items-start justify-between pb-2 border-b border-carbon-800">
+              <div>
+                <h4 className="font-medium text-white text-sm">Host Bootstrap & Package Provisioning</h4>
+                <p className="text-[11px] text-carbon-400">
+                  Automatically run commands or install software (Docker, Neofetch, utilities) on any new server upon registration.
+                </p>
+              </div>
+              <Wrench className="w-5 h-5 text-dorito-500" />
+            </div>
+
+            {bootstrapMsg && (
+              <div
+                className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${
+                  bootstrapMsg.type === 'success'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                    : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                }`}
+              >
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{bootstrapMsg.text}</span>
+              </div>
+            )}
+
+            {/* Toggle Enable */}
+            <div className="p-3 rounded-xl bg-carbon-850 border border-carbon-700/80">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={bootstrapEnabled}
+                  onChange={(e) => setBootstrapEnabled(e.target.checked)}
+                  className="w-4 h-4 rounded bg-carbon-800 border-carbon-700 text-dorito-500 focus:ring-0"
+                />
+                <div>
+                  <span className="text-white text-xs font-medium block">
+                    Enable automatic bootstrap execution on new hosts
+                  </span>
+                  <span className="text-[10px] text-carbon-400 block">
+                    When checked, NijiPanel runs the bash script below over SSH immediately after a host is added.
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] text-carbon-400 block">Quick Stack Presets:</span>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setBootstrapScript(
+                      `# Docker + Docker Compose\napt-get update -y && apt-get install -y curl ca-certificates\ncurl -fsSL https://get.docker.com | sh\napt-get install -y docker-compose-plugin\nsystemctl enable --now docker`
+                    )
+                  }
+                  className="px-2.5 py-1 rounded bg-carbon-800 hover:bg-carbon-750 text-carbon-200 hover:text-white border border-carbon-700 text-[11px] transition-colors"
+                >
+                  + Docker & Compose
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setBootstrapScript(
+                      `# Essential Sysadmin Utilities\napt-get update -y && apt-get install -y neofetch htop curl git jq unzip ufw fail2ban`
+                    )
+                  }
+                  className="px-2.5 py-1 rounded bg-carbon-800 hover:bg-carbon-750 text-carbon-200 hover:text-white border border-carbon-700 text-[11px] transition-colors"
+                >
+                  + Neofetch & Tools
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setBootstrapScript(
+                      `# Full Stack: Utilities + Docker + Compose\napt-get update -y && apt-get install -y neofetch htop curl git jq unzip ufw fail2ban\ncurl -fsSL https://get.docker.com | sh\napt-get install -y docker-compose-plugin\nsystemctl enable --now docker`
+                    )
+                  }
+                  className="px-2.5 py-1 rounded bg-carbon-800 hover:bg-carbon-750 text-carbon-200 hover:text-white border border-carbon-700 text-[11px] transition-colors"
+                >
+                  + Full Stack (Docker + Neofetch + Tools)
+                </button>
+              </div>
+            </div>
+
+            {/* Script Textarea */}
+            <div>
+              <label className="block text-xs text-carbon-300 mb-1">
+                Bootstrap Shell Script (Bash)
+              </label>
+              <textarea
+                rows={7}
+                value={bootstrapScript}
+                onChange={(e) => setBootstrapScript(e.target.value)}
+                placeholder="#!/usr/bin/env bash&#10;apt-get update -y && apt-get install -y docker.io neofetch"
+                className="w-full bg-black/80 border border-carbon-700 rounded-xl px-3 py-2 text-xs font-mono text-dorito-300 focus:outline-none focus:border-dorito-500 leading-relaxed"
+              />
+              <span className="text-[10px] text-carbon-500 block mt-1">
+                Script runs with root / sudo permissions. Errors or output will be captured in the Notification Center.
+              </span>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="submit"
+                disabled={bootstrapSaving}
+                className="px-4 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-xs transition-colors disabled:opacity-50 shadow-md shadow-dorito-500/20"
+              >
+                {bootstrapSaving ? 'Saving...' : 'Save Provisioning Settings'}
+              </button>
+            </div>
+          </form>
         )}
       </div>
     </div>

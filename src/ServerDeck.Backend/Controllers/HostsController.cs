@@ -14,17 +14,26 @@ public class HostsController : ControllerBase
     private readonly ISshConnectionManager _sshManager;
     private readonly IMetricsHistoryService _metricsService;
     private readonly IBenchmarkService _benchmarkService;
+    private readonly ISettingsService _settingsService;
+    private readonly INotificationService _notificationService;
+    private readonly ILogger<HostsController> _logger;
 
     public HostsController(
         IHostService hostService,
         ISshConnectionManager sshManager,
         IMetricsHistoryService metricsService,
-        IBenchmarkService benchmarkService)
+        IBenchmarkService benchmarkService,
+        ISettingsService settingsService,
+        INotificationService notificationService,
+        ILogger<HostsController> logger)
     {
         _hostService = hostService;
         _sshManager = sshManager;
         _metricsService = metricsService;
         _benchmarkService = benchmarkService;
+        _settingsService = settingsService;
+        _notificationService = notificationService;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -51,6 +60,44 @@ public class HostsController : ControllerBase
         }
 
         var created = await _hostService.CreateHostAsync(request);
+
+        // Auto-run bootstrap provisioning script on new host if enabled
+        var bootstrapEnabled = _settingsService.GetSetting("host_provision_bootstrap_enabled") == "true";
+        var bootstrapScript = _settingsService.GetSetting("host_provision_bootstrap_script");
+
+        if (bootstrapEnabled && !string.IsNullOrWhiteSpace(bootstrapScript))
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var hostEntity = await _hostService.GetHostEntityAsync(created.Id);
+                    if (hostEntity != null)
+                    {
+                        var sanitizedScript = bootstrapScript.Replace("\r\n", "\n");
+                        var cmdResult = await _sshManager.RunCommandAsync(hostEntity, sanitizedScript, 300);
+                        
+                        await _notificationService.CreateNotificationAsync(
+                            $"Bootstrap completed for {created.Name}",
+                            $"Provisioning packages/setup script completed successfully.\nExit code: {cmdResult.ExitCode}",
+                            cmdResult.ExitCode == 0 ? "info" : "warning",
+                            created.Id
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Bootstrap execution failed for host {HostId}", created.Id);
+                    await _notificationService.CreateNotificationAsync(
+                        $"Bootstrap failed for {created.Name}",
+                        $"Error executing provisioning script: {ex.Message}",
+                        "error",
+                        created.Id
+                    );
+                }
+            });
+        }
+
         return CreatedAtAction(nameof(GetHost), new { id = created.Id }, created);
     }
 

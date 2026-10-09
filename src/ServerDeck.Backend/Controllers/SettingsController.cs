@@ -30,4 +30,22 @@ public class SettingsController : ControllerBase
         var key = _settingsService.RegenerateMasterKey(bits);
         return Ok(key);
     }
+
+    [HttpGet("bootstrap-script")]
+    public ActionResult<object> GetBootstrapScript()
+    {
+        var script = _settingsService.GetSetting("host_provision_bootstrap_script") ?? "";
+        var enabled = _settingsService.GetSetting("host_provision_bootstrap_enabled") == "true";
+        return Ok(new { script, enabled });
+    }
+
+    [HttpPost("bootstrap-script")]
+    public ActionResult<object> SetBootstrapScript([FromBody] BootstrapScriptRequest request)
+    {
+        _settingsService.SetSetting("host_provision_bootstrap_script", request.Script ?? "");
+        _settingsService.SetSetting("host_provision_bootstrap_enabled", request.Enabled ? "true" : "false");
+        return Ok(new { success = true });
+    }
 }
+
+public record BootstrapScriptRequest(string? Script, bool Enabled);

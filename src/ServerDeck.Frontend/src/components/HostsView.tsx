@@ -67,6 +67,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
   const [formPassphrase, setFormPassphrase] = useState('');
   const [formNotes, setFormNotes] = useState('');
   const [formHardening, setFormHardening] = useState(false);
+  const [formBootstrap, setFormBootstrap] = useState(true);
   const [hardeningHostId, setHardeningHostId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -144,6 +145,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
     setFormHardening(false);
     setFormError(null);
     setAddModalOpen(true);
+    api.settings.getBootstrapScript().then((res) => setFormBootstrap(res.enabled ?? true)).catch(() => {});
   };
 
   const handleOpenEdit = (h: Host) => {
@@ -932,6 +934,27 @@ export const HostsView: React.FC<HostsViewProps> = ({
                   </div>
                 </label>
               </div>
+
+              {!editHost && (
+                <div className="pt-1">
+                  <label className="flex items-center gap-2.5 cursor-pointer p-3 rounded-xl bg-carbon-850 border border-carbon-700/80 hover:border-dorito-500/40 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={formBootstrap}
+                      onChange={(e) => setFormBootstrap(e.target.checked)}
+                      className="w-4 h-4 rounded bg-carbon-800 border-carbon-700 text-dorito-500 focus:ring-0"
+                    />
+                    <div>
+                      <span className="text-xs text-white font-mono font-medium block">
+                        Auto-Provision: Install initial software stack (Docker, Neofetch, etc.)
+                      </span>
+                      <span className="text-[10px] text-carbon-400 font-mono block">
+                        Executes configured global bootstrap script via SSH in background upon host creation.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-3">
                 <button

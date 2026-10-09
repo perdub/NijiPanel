@@ -114,6 +114,9 @@ export const api = {
     getMasterKey: () => request<MasterKey>('/settings/master-key'),
     regenerateMasterKey: (bits = 4096) =>
       request<MasterKey>(`/settings/master-key/regenerate?bits=${bits}`, { method: 'POST' }),
+    getBootstrapScript: () => request<{ script: string; enabled: boolean }>('/settings/bootstrap-script'),
+    setBootstrapScript: (data: { script: string; enabled: boolean }) =>
+      request<{ success: boolean }>('/settings/bootstrap-script', { method: 'POST', body: JSON.stringify(data) }),
   },
   hosts: {
     list: () => request<Host[]>('/hosts'),
@@ -460,6 +463,10 @@ export const api = {
       request<PackageUpgradeResult>(`/hosts/${hostId}/packages/upgrade`, {
         method: 'POST',
       }),
+  },
+  terminal: {
+    closeSession: (sessionId: string) =>
+      request<{ success: boolean }>(`/terminal/sessions/${sessionId}`, { method: 'DELETE' }),
   },
 };
 

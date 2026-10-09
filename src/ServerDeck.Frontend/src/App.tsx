@@ -35,6 +35,14 @@ export const App: React.FC = () => {
 
   // Sidebar states
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    try {
+      const saved = localStorage.getItem('nijipanel_sidebar_width');
+      return saved ? Math.min(460, Math.max(200, parseInt(saved, 10))) : 260;
+    } catch {
+      return 260;
+    }
+  });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Notification center states
@@ -205,12 +213,15 @@ export const App: React.FC = () => {
         setIsCollapsed={setSidebarCollapsed}
         mobileOpen={mobileSidebarOpen}
         setMobileOpen={setMobileSidebarOpen}
+        width={sidebarWidth}
+        setWidth={setSidebarWidth}
       />
 
       <div
-        className={`flex-1 flex flex-col min-w-0 bg-black min-h-screen transition-all duration-200 ${
-          sidebarCollapsed ? 'lg:pl-[72px]' : 'lg:pl-64'
-        }`}
+        style={{
+          paddingLeft: sidebarCollapsed ? '72px' : `${sidebarWidth}px`,
+        }}
+        className="flex-1 flex flex-col min-w-0 bg-black min-h-screen transition-[padding] duration-150"
       >
         <TopHeader
           activeTab={activeTab}
