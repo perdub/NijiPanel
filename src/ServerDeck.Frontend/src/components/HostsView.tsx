@@ -244,7 +244,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-carbon-700/80 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-white tracking-tight">Hosts & Fleet</h1>
+            <h1 className="text-xl font-medium text-white tracking-tight">Hosts & Fleet</h1>
             <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-carbon-800 text-carbon-300 border border-carbon-700">
               {hosts.length} nodes
             </span>
@@ -305,7 +305,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
           <div className="mb-4 inline-block">
             <DoritoLogo size={64} className="mx-auto drop-shadow-[0_4px_16px_rgba(255,209,0,0.3)]" />
           </div>
-          <h3 className="text-lg font-bold text-white">No hosts connected in NijiPanel yet</h3>
+          <h3 className="text-lg font-medium text-white">No hosts connected in NijiPanel yet</h3>
           <p className="text-xs sm:text-sm text-carbon-400 max-w-md mx-auto mt-2 mb-6">
             Add your first server over pure SSH to inspect Docker containers, Compose stacks, files, and live shell in rhythmic harmony.
           </p>
@@ -318,7 +318,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
             </button>
             <button
               onClick={handleOpenAdd}
-              className="px-4 py-2 rounded-lg bg-dorito-500 text-carbon-950 font-bold text-xs sm:text-sm hover:bg-dorito-600 transition-colors shadow-md shadow-dorito-500/20"
+              className="px-4 py-2 rounded-lg bg-dorito-500 text-carbon-950 font-medium text-xs sm:text-sm hover:bg-dorito-600 transition-colors shadow-md shadow-dorito-500/20"
             >
               Add Host
             </button>
@@ -507,18 +507,10 @@ export const HostsView: React.FC<HostsViewProps> = ({
                           isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'
                         }`}
                       />
-                      <h3 className="font-bold text-white text-base truncate tracking-tight">
+                      <h3 className="font-medium text-white text-base truncate tracking-tight">
                         {host.name}
                       </h3>
-                      <span
-                        className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.2 rounded px-1.5 py-0.5 border ${
-                          isOnline
-                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                            : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-                        }`}
-                      >
-                        {isOnline ? 'ONLINE' : 'OFFLINE'}
-                      </span>
+                      <span className="text-[10px] font-mono text-carbon-400 uppercase">{isOnline ? "Online" : "Offline"}</span>
                     </div>
                     <p className="text-xs text-carbon-400 mt-1 font-mono truncate">
                       {host.username}@{host.host}:{host.port}
@@ -571,7 +563,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
                       {stats.uptime}
                     </span>
                   )}
-                  <span className="px-2 py-0.5 rounded px-2 py-0.5 bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-semibold uppercase">
+                  <span className="px-1.5 py-0.5 rounded bg-carbon-900 border border-carbon-800 text-carbon-400 uppercase">
                     {host.authType === 'global_key' ? 'Master Key' : host.authType === 'key' ? 'Custom Key' : 'Password'}
                   </span>
                 </div>
@@ -766,7 +758,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
       {addModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-lg bg-carbon-900 border border-carbon-700 rounded-2xl shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold text-white mb-1 font-sans">
+            <h3 className="text-xl font-medium text-white mb-1 font-sans">
               {editHost ? 'Edit Host' : 'Add Host to NijiPanel'}
             </h3>
             <p className="text-xs text-carbon-400 mb-5 font-mono">
@@ -931,7 +923,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
                     className="w-4 h-4 rounded bg-carbon-800 border-carbon-700 text-dorito-500 focus:ring-0"
                   />
                   <div>
-                    <span className="text-xs text-white font-mono font-bold block">
+                    <span className="text-xs text-white font-mono font-medium block">
                       Hardening: Auto-switch SSH port to random high port (20000-59000)
                     </span>
                     <span className="text-[10px] text-carbon-400 font-mono block">
@@ -952,7 +944,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-5 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-sm transition-colors disabled:opacity-50 shadow-md shadow-dorito-500/20"
+                  className="px-5 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-sm transition-colors disabled:opacity-50 shadow-md shadow-dorito-500/20"
                 >
                   {submitting ? 'Saving...' : editHost ? 'Save Changes' : 'Add Host'}
                 </button>
@@ -971,7 +963,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
                 <Shield className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-white">1-Click Server Setup Command</h3>
+                <h3 className="text-lg font-medium text-white">1-Click Server Setup Command</h3>
                 <p className="text-xs text-carbon-400 font-mono">
                   Execute this command on your server to authorize NijiPanel with your master key
                 </p>
@@ -991,7 +983,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
               <div className="flex gap-2 w-full sm:w-auto">
                 <button
                   onClick={() => copyToClipboard(oneLinerCommand)}
-                  className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs shadow-md shadow-dorito-500/20 transition-all font-mono"
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-xs shadow-md shadow-dorito-500/20 transition-all font-mono"
                 >
                   {copied ? <Check className="w-4 h-4 text-emerald-800" /> : <Copy className="w-4 h-4" />}
                   <span>{copied ? 'Copied!' : 'Copy Command'}</span>
@@ -1021,7 +1013,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
                   <Zap className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white tracking-tight">
+                  <h3 className="text-base font-medium text-white tracking-tight">
                     Hardware Benchmark Scorecard
                   </h3>
                   <p className="text-xs font-mono text-carbon-400">
@@ -1042,7 +1034,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
             <div className="p-4 rounded-xl bg-carbon-850 border border-carbon-700 mb-4 flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-mono text-carbon-400 uppercase tracking-wider">Overall Health Score</span>
-                <div className="text-2xl font-bold text-white mt-0.5 tracking-tight flex items-baseline gap-1 font-mono">
+                <div className="text-2xl font-medium text-white mt-0.5 tracking-tight flex items-baseline gap-1 font-mono">
                   <span className={benchmarkResult.score >= 70 ? 'text-emerald-400' : 'text-amber-400'}>
                     {benchmarkResult.score}
                   </span>
@@ -1053,7 +1045,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
                 </p>
               </div>
 
-              <div className="w-16 h-16 rounded-full bg-carbon-800 border-2 border-dorito-500/40 flex items-center justify-center text-dorito-400 shadow-[0_0_15px_rgba(255,209,0,0.2)]">
+              <div className="w-16 h-16 rounded-full bg-carbon-800 border-2 border-dorito-500/40 flex items-center justify-center text-dorito-400 ">
                 <Gauge className="w-8 h-8 text-dorito-500" />
               </div>
             </div>
@@ -1064,7 +1056,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
                 <div className="flex items-center gap-1.5 text-carbon-400 text-[10px] uppercase mb-1">
                   <HardDrive className="w-3 h-3 text-amber-500" /> Disk I/O
                 </div>
-                <div className="text-sm font-bold text-white truncate">
+                <div className="text-sm font-medium text-white truncate">
                   {benchmarkResult.diskWriteFormatted}
                 </div>
                 <span className="text-[9px] text-carbon-500">256MB direct</span>
@@ -1074,7 +1066,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
                 <div className="flex items-center gap-1.5 text-carbon-400 text-[10px] uppercase mb-1">
                   <Cpu className="w-3 h-3 text-dorito-500" /> CPU Hash
                 </div>
-                <div className="text-sm font-bold text-white truncate">
+                <div className="text-sm font-medium text-white truncate">
                   {benchmarkResult.cpuFormatted}
                 </div>
                 <span className="text-[9px] text-carbon-500">{benchmarkResult.cpuSha256Ops.toLocaleString()} ops</span>
@@ -1084,7 +1076,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
                 <div className="flex items-center gap-1.5 text-carbon-400 text-[10px] uppercase mb-1">
                   <Wifi className="w-3 h-3 text-cyan-400" /> Latency
                 </div>
-                <div className="text-sm font-bold text-white truncate">
+                <div className="text-sm font-medium text-white truncate">
                   {benchmarkResult.pingFormatted}
                 </div>
                 <span className="text-[9px] text-carbon-500">Gateway ping</span>
@@ -1100,7 +1092,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
             <div className="flex justify-end">
               <button
                 onClick={() => setBenchmarkResult(null)}
-                className="px-4 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs font-mono transition-colors shadow-md"
+                className="px-4 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-xs font-mono transition-colors shadow-md"
               >
                 Done
               </button>
@@ -1115,7 +1107,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
           <div className="w-full max-w-md bg-carbon-900 border border-rose-500/40 rounded-2xl shadow-2xl p-6 relative">
             <div className="flex items-center gap-2.5 text-rose-400 mb-2">
               <AlertCircle className="w-5 h-5" />
-              <h3 className="font-bold text-white">Benchmark Failed</h3>
+              <h3 className="font-medium text-white">Benchmark Failed</h3>
             </div>
             <p className="text-xs font-mono text-carbon-300 mb-4">{benchmarkError}</p>
             <div className="flex justify-end">

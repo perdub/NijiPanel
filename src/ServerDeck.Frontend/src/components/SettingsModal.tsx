@@ -361,7 +361,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="flex items-center justify-between pb-3 border-b border-carbon-700 mb-4">
           <div className="flex items-center gap-2.5">
             <DoritoLogo size={28} />
-            <h3 className="font-bold text-white text-lg font-sans">
+            <h3 className="font-medium text-white text-lg font-sans">
               Niji<span className="text-dorito-500">Panel</span> Settings
             </h3>
           </div>
@@ -453,7 +453,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </span>
               <button
                 onClick={handleCopyKey}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs shadow-md shadow-dorito-500/20 transition-all"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-xs shadow-md shadow-dorito-500/20 transition-all"
               >
                 {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-950" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copiedKey ? 'Copied!' : 'Copy .pub Key'}</span>
@@ -517,7 +517,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <button
                   type="submit"
                   disabled={passSaving}
-                  className="px-4 py-2 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs transition-colors disabled:opacity-50 shadow-md shadow-dorito-500/20"
+                  className="px-4 py-2 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-xs transition-colors disabled:opacity-50 shadow-md shadow-dorito-500/20"
                 >
                   {passSaving ? 'Saving...' : 'Update Password'}
                 </button>
@@ -533,7 +533,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="p-4 rounded-xl bg-carbon-850 border border-carbon-700 space-y-3">
               <div className="flex items-center gap-2">
                 <Cloud className="w-4 h-4 text-dorito-500" />
-                <h4 className="text-sm font-bold text-white font-sans">Zero-Knowledge Cloud Migration (2-Value Transfer)</h4>
+                <h4 className="text-sm font-medium text-white font-sans">Zero-Knowledge Cloud Migration (2-Value Transfer)</h4>
               </div>
               <p className="text-xs text-carbon-400 leading-relaxed font-sans">
                 All host configurations are encrypted client-side using <strong>AES-256-GCM</strong> before uploading. To restore on another machine, save only <strong>2 values</strong>: the share code and passphrase.
@@ -542,7 +542,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <button
                 onClick={handleCloudExport}
                 disabled={cloudExporting}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs shadow-md shadow-dorito-500/20 transition-all disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-xs shadow-md shadow-dorito-500/20 transition-all disabled:opacity-50"
               >
                 <Share2 className="w-3.5 h-3.5" />
                 <span>{cloudExporting ? 'Encrypting & Uploading...' : 'Generate Cloud Backup'}</span>
@@ -591,7 +591,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
             {/* Cloud Restore */}
             <div className="p-4 rounded-xl bg-carbon-850 border border-carbon-700 space-y-3">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2 font-sans">
+              <h4 className="text-sm font-medium text-white flex items-center gap-2 font-sans">
                 <Download className="w-4 h-4 text-emerald-400" />
                 <span>Restore from Cloud via 2 Values</span>
               </h4>
@@ -643,7 +643,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
             {/* Local Offline File Export / Import */}
             <div className="p-4 rounded-xl bg-carbon-850 border border-carbon-700 space-y-3">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2 font-sans">
+              <h4 className="text-sm font-medium text-white flex items-center gap-2 font-sans">
                 <Database className="w-4 h-4 text-dorito-500" />
                 <span>Offline Backup File (.deck)</span>
               </h4>
@@ -693,7 +693,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="space-y-4 font-mono text-xs">
             <div className="flex items-center justify-between pb-2 border-b border-carbon-800">
               <div>
-                <h4 className="font-bold text-white text-sm">External Alert Integrations</h4>
+                <h4 className="font-medium text-white text-sm">External Alert Integrations</h4>
                 <p className="text-[11px] text-carbon-400">
                   Dispatch instant notifications to Telegram or a custom HTTP Webhook
                 </p>
@@ -775,7 +775,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <button
                   type="submit"
                   disabled={savingAlerts}
-                  className="px-4 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold transition-colors shadow-md disabled:opacity-40"
+                  className="px-4 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium transition-colors shadow-md disabled:opacity-40"
                 >
                   {savingAlerts ? 'Saving...' : 'Save Settings'}
                 </button>
@@ -807,7 +807,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="space-y-4 font-mono text-xs">
             <div className="flex items-start justify-between pb-2 border-b border-carbon-800">
               <div>
-                <h4 className="font-bold text-white text-sm">Passkeys & WebAuthn Credentials</h4>
+                <h4 className="font-medium text-white text-sm">Passkeys & WebAuthn Credentials</h4>
                 <p className="text-[11px] text-carbon-400">
                   Sign in without passwords using Touch ID, Face ID, Windows Hello, or YubiKey
                 </p>
@@ -829,7 +829,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <button
                 onClick={handleRegisterPasskey}
                 disabled={passkeyRegistering}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold transition-colors shadow-md disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium transition-colors shadow-md disabled:opacity-50"
               >
                 <Fingerprint className="w-4 h-4" />
                 <span>{passkeyRegistering ? 'Registering...' : 'Register New Passkey'}</span>
@@ -856,7 +856,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <Fingerprint className="w-4 h-4" />
                       </div>
                       <div>
-                        <div className="font-bold text-white text-xs">{pk.name}</div>
+                        <div className="font-medium text-white text-xs">{pk.name}</div>
                         <div className="text-[10px] text-carbon-500">
                           Added: {new Date(pk.createdAt).toLocaleDateString()} {new Date(pk.createdAt).toLocaleTimeString()}
                         </div>

@@ -181,7 +181,7 @@ export const ContainerExecModal: React.FC<ContainerExecModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-white text-sm sm:text-base font-sans">
+                <h3 className="font-medium text-white text-sm sm:text-base font-sans">
                   Container Exec: {containerName}
                 </h3>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-carbon-800 text-carbon-300 border border-carbon-700">

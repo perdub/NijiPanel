@@ -236,10 +236,8 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
       <div className="border-b border-carbon-700/80 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold text-white tracking-tight">Port Registry & Live Sockets</h1>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-semibold">
-              SSH TUNNEL CLI GENERATOR
-            </span>
+            <h1 className="text-lg font-medium text-white tracking-tight">Port Registry & Live Sockets</h1>
+            
           </div>
           <p className="text-xs sm:text-sm text-carbon-400 mt-1 font-mono">
             Network port registry, live `ss -tulpn` socket inspector, and 1-click CLI tunnel generator for {selectedHost.name}
@@ -289,11 +287,11 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Network className="w-5 h-5 text-dorito-500" />
-                  <h2 className="text-lg font-bold text-white font-sans">Port Registry</h2>
+                  <h2 className="text-lg font-medium text-white font-sans">Port Registry</h2>
                 </div>
                 <button
                   onClick={() => setAddPortModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs shadow-md shadow-dorito-500/20 transition-all font-mono"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-xs shadow-md shadow-dorito-500/20 transition-all font-mono"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Port</span>
@@ -371,7 +369,7 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ShieldAlert className="w-5 h-5 text-amber-500" />
-                  <h2 className="text-lg font-bold text-white font-sans">SSH Port Forwarding (Tunnels)</h2>
+                  <h2 className="text-lg font-medium text-white font-sans">SSH Port Forwarding (Tunnels)</h2>
                 </div>
                 <button
                   onClick={() => setAddTunnelModal(true)}
@@ -399,7 +397,7 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
                       >
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <div className="font-bold text-white font-sans">{t.name}</div>
+                            <div className="font-medium text-white font-sans">{t.name}</div>
                             <div className="font-mono text-carbon-400 text-[11px] mt-0.5">
                               Local :{t.localPort} → {t.remoteHost}:{t.remotePort}
                             </div>
@@ -456,11 +454,11 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <StickyNote className="w-5 h-5 text-dorito-500" />
-                <h2 className="text-lg font-bold text-white font-sans">Notes & Documentation</h2>
+                <h2 className="text-lg font-medium text-white font-sans">Notes & Documentation</h2>
               </div>
               <button
                 onClick={handleSaveNote}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs shadow-md shadow-dorito-500/20 transition-all font-mono"
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-xs shadow-md shadow-dorito-500/20 transition-all font-mono"
               >
                 {noteSaved ? <Check className="w-3.5 h-3.5 text-emerald-950" /> : <Save className="w-3.5 h-3.5" />}
                 <span>{noteSaved ? 'Saved!' : 'Save Notes'}</span>
@@ -473,7 +471,7 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
                 value={noteTitle}
                 onChange={(e) => setNoteTitle(e.target.value)}
                 placeholder="Notes title"
-                className="bg-transparent border-b border-carbon-700 pb-2 mb-3 text-sm font-bold text-white focus:outline-none focus:border-dorito-500 font-sans"
+                className="bg-transparent border-b border-carbon-700 pb-2 mb-3 text-sm font-medium text-white focus:outline-none focus:border-dorito-500 font-sans"
               />
               <textarea
                 value={noteContent}
@@ -602,7 +600,7 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
                           {/* Protocol & State */}
                           <td className="py-2.5 px-3 whitespace-nowrap">
                             <span
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-medium uppercase ${
                                 s.protocol.toLowerCase() === 'tcp'
                                   ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
                                   : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
@@ -692,7 +690,7 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
       {addPortModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
           <div className="w-full max-w-md bg-carbon-900 border border-carbon-700 rounded-2xl p-5 shadow-2xl">
-            <h3 className="font-bold text-white text-base mb-1 font-sans">Register Port</h3>
+            <h3 className="font-medium text-white text-base mb-1 font-sans">Register Port</h3>
             <p className="text-xs text-carbon-400 mb-4 font-mono">Record port assignments and service mappings for documentation</p>
 
             <form onSubmit={handleAddPort} className="space-y-3 font-mono">
@@ -753,7 +751,7 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs font-mono"
+                  className="px-4 py-2 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-xs font-mono"
                 >
                   Save Port
                 </button>
@@ -767,7 +765,7 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
       {addTunnelModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
           <div className="w-full max-w-md bg-carbon-900 border border-carbon-700 rounded-2xl p-5 shadow-2xl">
-            <h3 className="font-bold text-white text-base mb-1 font-sans">New SSH Port Forwarding Tunnel</h3>
+            <h3 className="font-medium text-white text-base mb-1 font-sans">New SSH Port Forwarding Tunnel</h3>
             <p className="text-xs text-carbon-400 mb-4 font-mono">Forward a remote service through encrypted SSH tunnel directly to NijiPanel host</p>
 
             <form onSubmit={handleAddTunnel} className="space-y-3 font-mono">
@@ -838,7 +836,7 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs font-mono"
+                  className="px-4 py-2 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-xs font-mono"
                 >
                   Create Tunnel
                 </button>

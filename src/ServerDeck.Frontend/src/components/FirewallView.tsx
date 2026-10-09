@@ -142,7 +142,7 @@ export const FirewallView: React.FC<FirewallViewProps> = ({ selectedHost }) => {
     return (
       <div className="bg-carbon-900 border border-carbon-700 rounded-xl p-10 text-center text-carbon-400">
         <Server className="w-10 h-10 mx-auto mb-3 opacity-30 text-dorito-500" />
-        <h3 className="text-base font-bold text-white mb-1">No Host Selected</h3>
+        <h3 className="text-base font-medium text-white mb-1">No Host Selected</h3>
         <p className="text-xs font-mono">Please select or connect a server from the top bar to inspect firewall rules.</p>
       </div>
     );
@@ -171,7 +171,7 @@ export const FirewallView: React.FC<FirewallViewProps> = ({ selectedHost }) => {
         <div>
           <div className="flex items-center gap-2">
             <Shield className="w-6 h-6 text-dorito-500" />
-            <h2 className="text-xl font-bold text-white tracking-tight">Security & Firewall Sentinel</h2>
+            <h2 className="text-xl font-medium text-white tracking-tight">Security & Firewall Sentinel</h2>
             <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-semibold uppercase">
               {selectedHost.name}
             </span>
@@ -194,7 +194,7 @@ export const FirewallView: React.FC<FirewallViewProps> = ({ selectedHost }) => {
           {activeTab === 'rules' && (
             <button
               onClick={() => setAddModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs font-mono shadow-md transition-colors"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-xs font-mono shadow-md transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Port Rule</span>
@@ -275,7 +275,7 @@ export const FirewallView: React.FC<FirewallViewProps> = ({ selectedHost }) => {
             <div className="p-3.5 rounded-xl bg-carbon-900 border border-carbon-700 flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-mono text-carbon-400 uppercase">Engine Status</span>
-                <div className="text-sm font-bold text-white mt-0.5 flex items-center gap-2">
+                <div className="text-sm font-medium text-white mt-0.5 flex items-center gap-2">
                   <span
                     className={`w-2 h-2 rounded-full ${
                       firewallStatus?.isActive ? 'bg-emerald-400' : 'bg-amber-400'
@@ -290,7 +290,7 @@ export const FirewallView: React.FC<FirewallViewProps> = ({ selectedHost }) => {
             <div className="p-3.5 rounded-xl bg-carbon-900 border border-carbon-700 flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-mono text-carbon-400 uppercase">Active Rules</span>
-                <div className="text-sm font-bold text-dorito-400 mt-0.5 font-mono">
+                <div className="text-sm font-medium text-dorito-400 mt-0.5 font-mono">
                   {firewallStatus?.rules.length ?? 0} Rules
                 </div>
               </div>
@@ -300,7 +300,7 @@ export const FirewallView: React.FC<FirewallViewProps> = ({ selectedHost }) => {
             <div className="p-3.5 rounded-xl bg-carbon-900 border border-carbon-700 flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-mono text-carbon-400 uppercase">Backend Provider</span>
-                <div className="text-sm font-bold text-white mt-0.5 uppercase font-mono">
+                <div className="text-sm font-medium text-white mt-0.5 uppercase font-mono">
                   {firewallStatus?.backend || 'UFW'}
                 </div>
               </div>
@@ -352,7 +352,7 @@ export const FirewallView: React.FC<FirewallViewProps> = ({ selectedHost }) => {
                           <td className="py-2.5 px-3 text-center text-carbon-500">{rule.number}</td>
                           <td className="py-2.5 px-4">
                             <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase ${
                                 isAllow
                                   ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                                   : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
@@ -361,7 +361,7 @@ export const FirewallView: React.FC<FirewallViewProps> = ({ selectedHost }) => {
                               {rule.action}
                             </span>
                           </td>
-                          <td className="py-2.5 px-4 font-bold text-white">{rule.to}</td>
+                          <td className="py-2.5 px-4 font-medium text-white">{rule.to}</td>
                           <td className="py-2.5 px-4 uppercase text-carbon-300">{rule.protocol}</td>
                           <td className="py-2.5 px-4 text-carbon-300">{rule.from}</td>
                           <td className="py-2.5 px-4 text-carbon-400">{rule.direction || 'IN'}</td>
@@ -393,7 +393,7 @@ export const FirewallView: React.FC<FirewallViewProps> = ({ selectedHost }) => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="p-4 rounded-xl bg-carbon-900 border border-carbon-700">
               <span className="text-[10px] font-mono text-carbon-400 uppercase">Fail2ban Status</span>
-              <div className="text-sm font-bold text-white mt-1 flex items-center gap-2">
+              <div className="text-sm font-medium text-white mt-1 flex items-center gap-2">
                 <span
                   className={`w-2 h-2 rounded-full ${
                     fail2banStatus?.isRunning ? 'bg-emerald-400' : 'bg-rose-500'
@@ -411,14 +411,14 @@ export const FirewallView: React.FC<FirewallViewProps> = ({ selectedHost }) => {
 
             <div className="p-4 rounded-xl bg-carbon-900 border border-carbon-700">
               <span className="text-[10px] font-mono text-carbon-400 uppercase">Currently Banned</span>
-              <div className="text-xl font-bold text-rose-400 mt-0.5 font-mono">
+              <div className="text-xl font-medium text-rose-400 mt-0.5 font-mono">
                 {fail2banStatus?.currentlyBanned ?? 0}
               </div>
             </div>
 
             <div className="p-4 rounded-xl bg-carbon-900 border border-carbon-700">
               <span className="text-[10px] font-mono text-carbon-400 uppercase">Total Interceptions</span>
-              <div className="text-xl font-bold text-dorito-400 mt-0.5 font-mono">
+              <div className="text-xl font-medium text-dorito-400 mt-0.5 font-mono">
                 {fail2banStatus?.totalBanned ?? 0}
               </div>
             </div>
@@ -458,7 +458,7 @@ export const FirewallView: React.FC<FirewallViewProps> = ({ selectedHost }) => {
                 }
               }}
               disabled={actionLoading || !manualUnbanIp.trim()}
-              className="px-4 py-2 rounded-lg bg-carbon-800 hover:bg-carbon-750 border border-carbon-600 text-xs font-mono text-dorito-400 font-bold hover:text-white transition-colors disabled:opacity-40 flex items-center gap-1.5 shrink-0"
+              className="px-4 py-2 rounded-lg bg-carbon-800 hover:bg-carbon-750 border border-carbon-600 text-xs font-mono text-dorito-400 font-medium hover:text-white transition-colors disabled:opacity-40 flex items-center gap-1.5 shrink-0"
             >
               <Unlock className="w-3.5 h-3.5" />
               <span>Unban IP</span>
@@ -468,7 +468,7 @@ export const FirewallView: React.FC<FirewallViewProps> = ({ selectedHost }) => {
           {/* Banned IPs Table */}
           <div className="rounded-xl border border-carbon-700 bg-carbon-900 overflow-hidden shadow-lg">
             <div className="px-4 py-3 border-b border-carbon-700 bg-carbon-850 flex items-center justify-between">
-              <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider">
+              <h3 className="text-xs font-mono font-medium text-white uppercase tracking-wider">
                 Banned IP Addresses ({fail2banStatus?.bannedIps?.length ?? 0})
               </h3>
             </div>
@@ -488,7 +488,7 @@ export const FirewallView: React.FC<FirewallViewProps> = ({ selectedHost }) => {
                   >
                     <div className="flex items-center gap-3">
                       <span className="w-2 h-2 rounded-full bg-rose-500" />
-                      <span className="font-bold text-white">{ip}</span>
+                      <span className="font-medium text-white">{ip}</span>
                       <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">
                         Banned
                       </span>
@@ -515,7 +515,7 @@ export const FirewallView: React.FC<FirewallViewProps> = ({ selectedHost }) => {
       {addModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-carbon-900 border border-carbon-700 rounded-2xl shadow-2xl p-6 relative">
-            <h3 className="text-base font-bold text-white mb-1">Add Firewall Rule</h3>
+            <h3 className="text-base font-medium text-white mb-1">Add Firewall Rule</h3>
             <p className="text-xs text-carbon-400 mb-4 font-mono">
               Apply inbound packet filtering policy via UFW
             </p>
@@ -583,7 +583,7 @@ export const FirewallView: React.FC<FirewallViewProps> = ({ selectedHost }) => {
                 <button
                   type="submit"
                   disabled={actionLoading || !newPort.trim()}
-                  className="px-4 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold transition-colors shadow-md disabled:opacity-40"
+                  className="px-4 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium transition-colors shadow-md disabled:opacity-40"
                 >
                   {actionLoading ? 'Applying...' : 'Apply Rule'}
                 </button>

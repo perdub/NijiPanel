@@ -108,7 +108,7 @@ export const UtilsView: React.FC<UtilsViewProps> = ({ masterPublicKey }) => {
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="border-b border-carbon-700/80 pb-4">
         <div className="flex items-center gap-2">
-          <h1 className="text-lg font-bold text-white tracking-tight">Utilities & Generators</h1>
+          <h1 className="text-lg font-medium text-white tracking-tight">Utilities & Generators</h1>
           <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-semibold">
             KESSOKU TOOLKIT
           </span>
@@ -127,7 +127,7 @@ export const UtilsView: React.FC<UtilsViewProps> = ({ masterPublicKey }) => {
                 <Lock className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="font-bold text-white text-base font-sans">Password Generator</h3>
+                <h3 className="font-medium text-white text-base font-sans">Password Generator</h3>
                 <p className="text-xs text-carbon-400 font-mono">For root credentials, databases, and system users</p>
               </div>
             </div>
@@ -211,7 +211,7 @@ export const UtilsView: React.FC<UtilsViewProps> = ({ masterPublicKey }) => {
                 <Key className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="font-bold text-white text-base font-sans">SSH Key Generator</h3>
+                <h3 className="font-medium text-white text-base font-sans">SSH Key Generator</h3>
                 <p className="text-xs text-carbon-400 font-mono">Generate OpenSSH keypair (RSA 4096 / Ed25519)</p>
               </div>
             </div>
@@ -295,7 +295,7 @@ export const UtilsView: React.FC<UtilsViewProps> = ({ masterPublicKey }) => {
             <Terminal className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="font-bold text-white text-base font-sans">1-Click Server Provisioning Script</h3>
+            <h3 className="font-medium text-white text-base font-sans">1-Click Server Provisioning Script</h3>
             <p className="text-xs text-carbon-400 font-mono">
               Paste any public SSH key to generate an automated deployment command for target hosts
             </p>

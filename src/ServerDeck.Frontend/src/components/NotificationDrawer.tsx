@@ -88,9 +88,9 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-white tracking-tight">Notification Center</h3>
+                <h3 className="text-sm font-medium text-white tracking-tight">Notification Center</h3>
                 {unreadCount > 0 && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-mono font-bold bg-rose-500 text-white rounded-full">
+                  <span className="px-1.5 py-0.5 text-[10px] font-mono font-medium bg-rose-500 text-white rounded-full">
                     {unreadCount}
                   </span>
                 )}

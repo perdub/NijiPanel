@@ -141,12 +141,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {!isCollapsed && (
               <div className="flex flex-col min-w-0">
                 <div className="flex items-center gap-1.5 leading-none">
-                  <span className="font-extrabold text-sm tracking-tight text-white font-sans">
+                  <span className="font-medium text-sm tracking-tight text-white font-sans">
                     Niji<span className="text-dorito-500">Panel</span>
                   </span>
-                  <span className="text-[9px] font-mono uppercase px-1 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-semibold">
-                    ★ NIJIKA
-                  </span>
+                  
                 </div>
                 <span className="text-[10px] font-mono text-carbon-400 truncate mt-0.5">
                   Server Drummer
@@ -327,7 +325,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <Bell className="w-4 h-4" />
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 min-w-[15px] h-3.5 px-0.5 flex items-center justify-center rounded-full bg-rose-500 text-[9px] font-mono font-bold text-white ring-1 ring-carbon-950 animate-pulse">
+                <span className="absolute top-1 right-1 min-w-[15px] h-3.5 px-0.5 flex items-center justify-center rounded-full bg-rose-500 text-[9px] font-mono font-medium text-white ring-1 ring-carbon-950 animate-pulse">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}

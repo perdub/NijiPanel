@@ -182,7 +182,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
       <div className="flex items-center justify-between border-b border-carbon-700/80 pb-3">
         <div className="flex items-center gap-2.5 flex-wrap">
           <TerminalIcon className="w-5 h-5 text-dorito-500" />
-          <h1 className="text-lg font-bold text-white tracking-tight font-sans">SSH Terminal</h1>
+          <h1 className="text-lg font-medium text-white tracking-tight font-sans">SSH Terminal</h1>
           <span className="text-xs text-carbon-400 font-mono hidden sm:inline">
             {selectedHost.username}@{selectedHost.host}:{selectedHost.port}
           </span>
@@ -196,9 +196,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
             <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
             <span>{connected ? 'ONLINE • 140 BPM' : reconnecting ? 'Reconnecting...' : 'Disconnected'}</span>
           </span>
-          <span className="hidden md:inline-flex text-[9px] font-mono px-1.5 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400">
-            Kessoku Shell ~ Nijika
-          </span>
+          
         </div>
 
         <div className="flex items-center gap-2 font-mono">

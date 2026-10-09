@@ -284,7 +284,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
     return (
       <div className="p-8 text-center bg-carbon-900 border border-carbon-700 rounded-xl">
         <Cpu className="w-12 h-12 text-carbon-500 mx-auto mb-3" />
-        <h3 className="text-base font-bold text-white mb-1">No Host Selected</h3>
+        <h3 className="text-base font-medium text-white mb-1">No Host Selected</h3>
         <p className="text-xs text-carbon-400 font-mono">
           Select or add a host from the Hosts view to access Systemd, User Management, and OS Updates.
         </p>
@@ -330,7 +330,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <h2 className="text-xl font-bold text-white font-sans tracking-tight">
+              <h2 className="text-xl font-medium text-white font-sans tracking-tight">
                 Host Administration & Hardening
               </h2>
               <span className="text-xs font-mono px-2 py-0.5 rounded bg-carbon-800 border border-carbon-700 text-carbon-300">
@@ -379,7 +379,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               <Package className="w-3.5 h-3.5" />
               <span>OS Updates</span>
               {pkgResult && pkgResult.availableUpdatesCount > 0 && (
-                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-carbon-950 font-bold">
+                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-carbon-950 font-medium">
                   {pkgResult.availableUpdatesCount}
                 </span>
               )}
@@ -678,7 +678,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
                 <button
                   onClick={() => setAddUserModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-dorito-500 hover:bg-dorito-400 text-carbon-950 font-bold rounded-lg text-xs font-mono transition-colors shadow-sm"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-dorito-500 hover:bg-dorito-400 text-carbon-950 font-medium rounded-lg text-xs font-mono transition-colors shadow-sm"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
                   <span>Add User</span>
@@ -740,14 +740,14 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                             {/* Username & Lock Badge */}
                             <td className="py-2.5 px-3 whitespace-nowrap">
                               <div className="flex items-center gap-2">
-                                <span className="font-bold text-white text-sm">{u.username}</span>
+                                <span className="font-medium text-white text-sm">{u.username}</span>
                                 {u.isLocked && (
-                                  <span className="px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[9px] uppercase font-bold">
+                                  <span className="px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[9px] uppercase font-medium">
                                     Locked
                                   </span>
                                 )}
                                 {isRoot && (
-                                  <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[9px] uppercase font-bold">
+                                  <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[9px] uppercase font-medium">
                                     Root
                                   </span>
                                 )}
@@ -769,7 +769,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                             {/* Sudo / Privileges */}
                             <td className="py-2.5 px-3 hidden sm:table-cell">
                               {u.isSudo ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-bold text-[10px] uppercase">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-medium text-[10px] uppercase">
                                   <ShieldCheck className="w-3 h-3 text-dorito-500" /> Sudoer
                                 </span>
                               ) : (
@@ -881,11 +881,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <Package className="w-5 h-5 text-dorito-500" />
-                  <h3 className="text-base font-bold text-white">
+                  <h3 className="text-base font-medium text-white">
                     1-Click OS Package Manager
                   </h3>
                   {pkgResult?.packageManager && (
-                    <span className="px-2 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-mono text-[11px] font-bold uppercase">
+                    <span className="px-2 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-mono text-[11px] font-medium uppercase">
                       {pkgResult.packageManager}
                     </span>
                   )}
@@ -909,7 +909,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   <button
                     onClick={handleRunUpgrade}
                     disabled={upgradingPkgs || checkingPkgs}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-dorito-500 hover:bg-dorito-400 text-carbon-950 font-bold rounded-lg text-xs font-mono transition-colors shadow-lg shadow-dorito-500/10 disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-4 py-2 bg-dorito-500 hover:bg-dorito-400 text-carbon-950 font-medium rounded-lg text-xs font-mono transition-colors shadow-lg shadow-dorito-500/10 disabled:opacity-50"
                   >
                     <ArrowUpCircle className={`w-4 h-4 ${upgradingPkgs ? 'animate-spin' : ''}`} />
                     <span>{upgradingPkgs ? 'Upgrading Fleet...' : '1-Click Upgrade All'}</span>
@@ -931,7 +931,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 <div className="p-3.5 rounded-xl bg-carbon-950 border border-carbon-800 flex items-center justify-between">
                   <div>
                     <div className="text-[11px] text-carbon-400 font-mono uppercase">Total Upgradable</div>
-                    <div className="text-xl font-bold text-white font-mono mt-0.5">
+                    <div className="text-xl font-medium text-white font-mono mt-0.5">
                       {pkgResult.availableUpdatesCount}
                     </div>
                   </div>
@@ -941,7 +941,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 <div className="p-3.5 rounded-xl bg-carbon-950 border border-carbon-800 flex items-center justify-between">
                   <div>
                     <div className="text-[11px] text-carbon-400 font-mono uppercase">Security Patches</div>
-                    <div className="text-xl font-bold text-amber-400 font-mono mt-0.5">
+                    <div className="text-xl font-medium text-amber-400 font-mono mt-0.5">
                       {pkgResult.securityUpdatesCount}
                     </div>
                   </div>
@@ -951,7 +951,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 <div className="p-3.5 rounded-xl bg-carbon-950 border border-carbon-800 flex items-center justify-between">
                   <div>
                     <div className="text-[11px] text-carbon-400 font-mono uppercase">Package Manager</div>
-                    <div className="text-xl font-bold text-emerald-400 font-mono uppercase mt-0.5">
+                    <div className="text-xl font-medium text-emerald-400 font-mono uppercase mt-0.5">
                       {pkgResult.packageManager}
                     </div>
                   </div>
@@ -966,7 +966,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full ${pkgUpgradeResult.success ? 'bg-emerald-400' : 'bg-rose-500'}`}></span>
-                    <h4 className="text-xs font-bold text-white font-mono uppercase">
+                    <h4 className="text-xs font-medium text-white font-mono uppercase">
                       Upgrade Execution {pkgUpgradeResult.success ? 'Completed Successfully' : 'Failed with Code ' + pkgUpgradeResult.exitCode}
                     </h4>
                   </div>
@@ -987,7 +987,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
             {pkgResult && pkgResult.packages.length > 0 && (
               <div className="border border-carbon-750 rounded-xl overflow-hidden bg-carbon-950">
                 <div className="px-4 py-2.5 bg-carbon-900 border-b border-carbon-750 flex items-center justify-between">
-                  <span className="text-xs font-bold text-white font-mono uppercase">
+                  <span className="text-xs font-medium text-white font-mono uppercase">
                     Packages Pending Installation ({pkgResult.packages.length})
                   </span>
                 </div>
@@ -1018,7 +1018,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <Terminal className="w-4 h-4 text-dorito-500" />
-                  <h3 className="font-bold text-white font-mono text-sm truncate">
+                  <h3 className="font-medium text-white font-mono text-sm truncate">
                     {drawerUnit}
                   </h3>
                   <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-carbon-800 border border-carbon-700 text-carbon-400">
@@ -1117,7 +1117,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       {addUserModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-carbon-900 border border-carbon-700 rounded-2xl shadow-2xl p-6 relative">
-            <h3 className="text-lg font-bold text-white mb-1 font-sans">
+            <h3 className="text-lg font-medium text-white mb-1 font-sans">
               Create New Linux User
             </h3>
             <p className="text-xs text-carbon-400 mb-4 font-mono">
@@ -1205,7 +1205,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 <button
                   type="submit"
                   disabled={creatingUser}
-                  className="px-4 py-2 rounded-lg bg-dorito-500 hover:bg-dorito-400 text-carbon-950 font-bold text-xs font-mono shadow-md disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg bg-dorito-500 hover:bg-dorito-400 text-carbon-950 font-medium text-xs font-mono shadow-md disabled:opacity-50"
                 >
                   {creatingUser ? 'Creating...' : 'Create Account'}
                 </button>

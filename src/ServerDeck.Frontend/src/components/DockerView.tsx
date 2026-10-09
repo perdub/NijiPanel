@@ -188,10 +188,8 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-carbon-700/80 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold text-white tracking-tight">Containers</h1>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-semibold">
-              LIVE ENGINE
-            </span>
+            <h1 className="text-lg font-medium text-white tracking-tight">Containers</h1>
+            
           </div>
           <p className="text-xs sm:text-sm text-carbon-400 mt-1 font-mono">
             {selectedHost.name} ({selectedHost.host})
@@ -258,7 +256,7 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
             onClick={() => setFilterState('exited')}
             className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
               filterState === 'exited'
-                ? 'bg-rose-500 text-white font-bold'
+                ? 'bg-rose-500 text-white font-medium'
                 : 'text-carbon-400 hover:text-white'
             }`}
           >
@@ -286,7 +284,7 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
                 key={c.id}
                 className={`rounded-md bg-[#0c0c0c] border p-3.5 shadow-xs transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
                   isOom || isCrashed
-                    ? 'border-rose-500/50 hover:border-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.08)]'
+                    ? 'border-rose-500/50 hover:border-rose-400 '
                     : 'border-carbon-700 hover:border-dorito-500/50'
                 }`}
               >
@@ -295,18 +293,18 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
                   <div className="flex items-center gap-2.5 flex-wrap mb-1">
                     {/* Status / Crash / OOM badges */}
                     {isOom ? (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-rose-950/90 text-rose-300 border border-rose-500/80 flex items-center gap-1 shadow-sm animate-pulse">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium uppercase tracking-wider bg-rose-950/90 text-rose-300 border border-rose-500/80 flex items-center gap-1 shadow-sm animate-pulse">
                         <Flame className="w-3 h-3 text-rose-400" />
                         <span>OOM-KILLED</span>
                       </span>
                     ) : isCrashed ? (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-rose-950/60 text-rose-400 border border-rose-500/50 flex items-center gap-1">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium uppercase tracking-wider bg-rose-950/60 text-rose-400 border border-rose-500/50 flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3 text-rose-400" />
                         <span>CRASHED {c.exitCode !== undefined ? `(code ${c.exitCode})` : ''}</span>
                       </span>
                     ) : (
                       <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider border ${
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium uppercase tracking-wider border ${
                           isRunning
                             ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                             : 'bg-carbon-800 text-carbon-400 border-carbon-700'
@@ -316,7 +314,7 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
                       </span>
                     )}
 
-                    <h3 className="text-sm sm:text-base font-bold text-white truncate font-sans">{c.names}</h3>
+                    <h3 className="text-sm sm:text-base font-medium text-white truncate font-sans">{c.names}</h3>
                     <span className="text-[11px] font-mono text-carbon-400 bg-carbon-850 border border-carbon-700 px-2 py-0.5 rounded">
                       {c.id.substring(0, 12)}
                     </span>
@@ -426,7 +424,7 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-white text-base font-sans">
+                    <h3 className="font-medium text-white text-base font-sans">
                       Crash Dump: {crashDumpModal.name}
                     </h3>
                     <span className="text-xs font-mono text-carbon-400">
@@ -435,7 +433,7 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider ${
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium uppercase tracking-wider ${
                         crashDumpModal.oomKilled
                           ? 'bg-rose-950 text-rose-300 border border-rose-500/80 animate-pulse'
                           : 'bg-rose-950/80 text-rose-400 border border-rose-500/50'
@@ -503,7 +501,7 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
                   handleAction(crashDumpModal.containerId, 'restart');
                   setCrashDumpModal(null);
                 }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-400 text-carbon-950 font-bold shadow-md"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-400 text-carbon-950 font-medium shadow-md"
               >
                 <RotateCw className="w-3.5 h-3.5" />
                 <span>Restart Container</span>
@@ -530,7 +528,7 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
                   <Scissors className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-white text-base font-sans">Smart Docker Prune</h3>
+                  <h3 className="font-medium text-white text-base font-sans">Smart Docker Prune</h3>
                   <p className="text-xs text-carbon-400 font-mono">
                     Preview reclaimable disk space on {selectedHost.name}
                   </p>
@@ -594,7 +592,7 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
                       <span className="text-[11px] text-carbon-400 block uppercase">
                         Total Reclaimable Space
                       </span>
-                      <span className="text-xl font-bold text-dorito-400 font-sans">
+                      <span className="text-xl font-medium text-dorito-400 font-sans">
                         {prunePreview.totalReclaimable}
                       </span>
                     </div>
@@ -644,7 +642,7 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
                               className="rounded border-carbon-600 text-dorito-500 focus:ring-dorito-500 w-4 h-4"
                             />
                             <div>
-                              <h4 className="font-bold text-white text-sm font-sans">{cat.type}</h4>
+                              <h4 className="font-medium text-white text-sm font-sans">{cat.type}</h4>
                               <p className="text-[11px] text-carbon-400">
                                 Total: {cat.totalCount} • Active: {cat.activeCount} • Current Size: {cat.size}
                               </p>
@@ -653,7 +651,7 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
 
                           <div className="text-right">
                             <span className="text-[10px] text-carbon-500 block">Reclaimable</span>
-                            <span className="text-xs font-bold text-dorito-400">{cat.reclaimable}</span>
+                            <span className="text-xs font-medium text-dorito-400">{cat.reclaimable}</span>
                           </div>
                         </div>
                       );
@@ -677,7 +675,7 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
               {pruneResult ? (
                 <button
                   onClick={() => setPruneModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-400 text-carbon-950 font-bold"
+                  className="px-4 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-400 text-carbon-950 font-medium"
                 >
                   Done
                 </button>
@@ -699,7 +697,7 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
                         !pruneOptions.pruneVolumes &&
                         !pruneOptions.pruneBuildCache)
                     }
-                    className="flex items-center gap-2 px-5 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-400 disabled:opacity-50 text-carbon-950 font-bold shadow-lg"
+                    className="flex items-center gap-2 px-5 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-400 disabled:opacity-50 text-carbon-950 font-medium shadow-lg"
                   >
                     {pruneExecuting ? (
                       <>
@@ -737,7 +735,7 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
           <div className="w-full max-w-4xl bg-carbon-900 border border-carbon-700 rounded-2xl shadow-2xl p-5 relative flex flex-col h-[80vh]">
             <div className="flex items-center justify-between pb-3 border-b border-carbon-700 mb-3">
               <div className="truncate">
-                <h3 className="font-bold text-white text-base truncate font-sans">Logs: {logsModal.name}</h3>
+                <h3 className="font-medium text-white text-base truncate font-sans">Logs: {logsModal.name}</h3>
                 <span className="text-xs text-dorito-400 font-mono">{logsModal.id.substring(0, 12)}</span>
               </div>
               <div className="flex items-center gap-2">
@@ -769,7 +767,7 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
           <div className="w-full max-w-3xl bg-carbon-900 border border-carbon-700 rounded-2xl shadow-2xl p-5 relative flex flex-col h-[85vh]">
             <div className="flex items-center justify-between pb-3 border-b border-carbon-700 mb-3">
               <div>
-                <h3 className="font-bold text-white text-base font-sans">Inspect: {inspectModal.name}</h3>
+                <h3 className="font-medium text-white text-base font-sans">Inspect: {inspectModal.name}</h3>
                 <span className="text-xs text-dorito-400 font-mono">{inspectModal.id.substring(0, 12)}</span>
               </div>
               <div className="flex items-center gap-2">

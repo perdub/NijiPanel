@@ -500,10 +500,8 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-carbon-700/80 pb-3">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold text-white tracking-tight">File Manager</h1>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-semibold">
-              SFTP EXPLORER
-            </span>
+            <h1 className="text-lg font-medium text-white tracking-tight">File Manager</h1>
+            
           </div>
           <p className="text-xs sm:text-sm text-carbon-400 mt-0.5 font-mono">
             File manager, archive tool, and embedded code editor on {selectedHost.name}
@@ -613,7 +611,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
                 onClick={() => loadDirectory(partPath)}
                 className={`px-1.5 py-0.5 rounded truncate max-w-[150px] ${
                   isLast
-                    ? 'text-white font-bold bg-carbon-850 border border-carbon-700'
+                    ? 'text-white font-medium bg-carbon-850 border border-carbon-700'
                     : 'text-carbon-400 hover:text-white hover:bg-carbon-800'
                 }`}
               >
@@ -636,7 +634,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
           <div className="flex items-center gap-2">
             <button
               onClick={handleOpenCompress}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold transition-all shadow-md shadow-dorito-500/20"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium transition-all shadow-md shadow-dorito-500/20"
             >
               <Archive className="w-3.5 h-3.5" />
               <span>Compress</span>
@@ -658,7 +656,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
             <ClipboardPaste className="w-4 h-4 text-dorito-500 shrink-0" />
             <div>
               <span className="text-carbon-300 font-mono">In NijiPanel Clipboard: </span>
-              <span className="font-bold text-white font-mono">{clipboard.name}</span>
+              <span className="font-medium text-white font-mono">{clipboard.name}</span>
               <span className="text-carbon-400 font-mono">
                 {' '}(from host <span className="text-dorito-400 font-medium">{clipboard.sourceHostName}</span>)
               </span>
@@ -668,7 +666,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
             <button
               onClick={handleDirectPaste}
               disabled={transferring}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs shadow-md shadow-dorito-500/20 transition-all disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-xs shadow-md shadow-dorito-500/20 transition-all disabled:opacity-50"
             >
               <Send className="w-3.5 h-3.5" />
               <span>{transferring ? 'Transferring via rsync/scp...' : 'Paste Here Directly'}</span>
@@ -875,7 +873,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
                 <button
                   onClick={handleSaveEditor}
                   disabled={editorSaving}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs shadow-md shadow-dorito-500/20 transition-all disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-xs shadow-md shadow-dorito-500/20 transition-all disabled:opacity-50"
                 >
                   {editorSaved ? <Check className="w-3.5 h-3.5 text-emerald-950" /> : <Save className="w-3.5 h-3.5" />}
                   <span>{editorSaved ? 'Saved' : editorSaving ? 'Saving...' : 'Save (Ctrl+S)'}</span>
@@ -956,7 +954,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
             <div className="flex items-center justify-between pb-3 border-b border-carbon-700 mb-4">
               <div className="flex items-center gap-2">
                 <Share2 className="w-5 h-5 text-dorito-500" />
-                <h3 className="font-bold text-white text-base font-sans">Share Public Download Link</h3>
+                <h3 className="font-medium text-white text-base font-sans">Share Public Download Link</h3>
               </div>
               <button
                 onClick={() => setShareTargetItem(null)}
@@ -1062,7 +1060,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
                   <button
                     type="submit"
                     disabled={shareCreating}
-                    className="px-4 py-2 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs shadow-md shadow-dorito-500/20 disabled:opacity-50"
+                    className="px-4 py-2 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-xs shadow-md shadow-dorito-500/20 disabled:opacity-50"
                   >
                     {shareCreating ? 'Generating...' : 'Generate Share Link'}
                   </button>
@@ -1084,7 +1082,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
                     </span>
                     <button
                       onClick={() => handleCopyShareLink(createdShare.token)}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs shrink-0 transition-colors"
+                      className="flex items-center gap-1 px-3 py-1.5 rounded bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-xs shrink-0 transition-colors"
                     >
                       {copiedShareLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                       <span>{copiedShareLink ? 'Copied!' : 'Copy'}</span>
@@ -1138,7 +1136,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
             <div className="flex items-center justify-between pb-3 border-b border-carbon-700 mb-4">
               <div className="flex items-center gap-2">
                 <LinkIcon className="w-5 h-5 text-dorito-500" />
-                <h3 className="font-bold text-white text-base font-sans">
+                <h3 className="font-medium text-white text-base font-sans">
                   Active Shared Links Manager — {selectedHost.name}
                 </h3>
               </div>
@@ -1178,7 +1176,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
                       >
                         <div className="space-y-1 min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-white truncate text-xs">{share.fileName}</span>
+                            <span className="font-medium text-white truncate text-xs">{share.fileName}</span>
                             {share.hasPassword && (
                               <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center gap-1">
                                 <Lock className="w-2.5 h-2.5" />
@@ -1260,7 +1258,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
             <div className="flex items-center justify-between pb-3 border-b border-carbon-700 mb-4">
               <div className="flex items-center gap-2">
                 <PieChart className="w-5 h-5 text-sky-400" />
-                <h3 className="font-bold text-white text-base font-sans">
+                <h3 className="font-medium text-white text-base font-sans">
                   Smart Disk Treemap Analyzer — {selectedHost.name}
                 </h3>
               </div>
@@ -1298,7 +1296,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
                 <button
                   onClick={() => runDiskUsageScan(diskUsagePath, diskUsageExclude)}
                   disabled={diskUsageLoading}
-                  className="flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-600 text-carbon-950 font-bold transition-all shadow-md shadow-sky-500/20 disabled:opacity-50"
+                  className="flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-600 text-carbon-950 font-medium transition-all shadow-md shadow-sky-500/20 disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${diskUsageLoading ? 'animate-spin' : ''}`} />
                   <span>Scan</span>
@@ -1385,13 +1383,13 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
                                     {item.name}
                                   </span>
                                 </div>
-                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-black/40">
+                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-black/40">
                                   {item.percent}%
                                 </span>
                               </div>
 
                               <div className="mt-2">
-                                <div className="text-xs font-bold text-white">
+                                <div className="text-xs font-medium text-white">
                                   {formatBytes(item.sizeBytes)}
                                 </div>
                                 <div className="text-[10px] opacity-75 truncate mt-0.5 font-mono">
@@ -1405,7 +1403,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
 
                       {/* Detailed Breakdown Ranked Table */}
                       <div className="rounded-xl bg-carbon-850/60 border border-carbon-750 overflow-hidden text-xs">
-                        <div className="px-4 py-2.5 bg-carbon-800 font-bold text-carbon-200 border-b border-carbon-750 flex items-center justify-between">
+                        <div className="px-4 py-2.5 bg-carbon-800 font-medium text-carbon-200 border-b border-carbon-750 flex items-center justify-between">
                           <span>Ranked Subdirectory Usage</span>
                           <span className="text-[11px] text-carbon-400 font-normal">
                             Click Jump to open folder
@@ -1489,7 +1487,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
             <div className="flex items-center justify-between pb-3 border-b border-carbon-700 mb-4">
               <div className="flex items-center gap-2">
                 <Archive className="w-5 h-5 text-dorito-500" />
-                <h3 className="font-bold text-white text-base font-sans">Compress Selected Items</h3>
+                <h3 className="font-medium text-white text-base font-sans">Compress Selected Items</h3>
               </div>
               <button
                 onClick={() => setShowCompressModal(false)}
@@ -1562,7 +1560,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
                 <button
                   type="submit"
                   disabled={compressing}
-                  className="px-4 py-2 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs shadow-md shadow-dorito-500/20 disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-xs shadow-md shadow-dorito-500/20 disabled:opacity-50"
                 >
                   {compressing ? 'Compressing...' : 'Compress'}
                 </button>
@@ -1579,7 +1577,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
             <div className="flex items-center justify-between pb-3 border-b border-carbon-700 mb-4">
               <div className="flex items-center gap-2">
                 <FolderArchive className="w-5 h-5 text-amber-400" />
-                <h3 className="font-bold text-white text-base font-sans">Extract Archive</h3>
+                <h3 className="font-medium text-white text-base font-sans">Extract Archive</h3>
               </div>
               <button
                 onClick={() => setExtractTargetItem(null)}
@@ -1626,7 +1624,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
                 <button
                   type="submit"
                   disabled={extracting}
-                  className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-carbon-950 font-bold text-xs shadow-md shadow-amber-500/20 disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-carbon-950 font-medium text-xs shadow-md shadow-amber-500/20 disabled:opacity-50"
                 >
                   {extracting ? 'Extracting...' : 'Extract Archive'}
                 </button>
@@ -1694,7 +1692,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
       {createModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
           <div className="w-full max-w-sm bg-carbon-900 border border-carbon-700 rounded-2xl p-5 shadow-2xl">
-            <h3 className="font-bold text-white text-base mb-1 font-sans">
+            <h3 className="font-medium text-white text-base mb-1 font-sans">
               {createModal === 'folder' ? 'Create Folder' : 'Create File'}
             </h3>
             <p className="text-xs text-carbon-400 mb-4 font-mono truncate">Path: {currentPath}</p>
@@ -1719,7 +1717,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-dorito-500 text-carbon-950 font-bold text-xs hover:bg-dorito-600 shadow-md shadow-dorito-500/20"
+                  className="px-4 py-1.5 rounded-lg bg-dorito-500 text-carbon-950 font-medium text-xs hover:bg-dorito-600 shadow-md shadow-dorito-500/20"
                 >
                   Create
                 </button>
@@ -1736,7 +1734,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
             <div className="flex items-center justify-between pb-3 border-b border-carbon-700 mb-3">
               <div className="flex items-center gap-2">
                 <Send className="w-4 h-4 text-dorito-500" />
-                <h3 className="font-bold text-white text-sm sm:text-base truncate font-sans">{transferResult.title}</h3>
+                <h3 className="font-medium text-white text-sm sm:text-base truncate font-sans">{transferResult.title}</h3>
               </div>
               <button
                 onClick={() => setTransferResult(null)}
@@ -1753,7 +1751,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
             <div className="flex justify-end font-mono">
               <button
                 onClick={() => setTransferResult(null)}
-                className="px-4 py-2 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs"
+                className="px-4 py-2 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-xs"
               >
                 Close
               </button>

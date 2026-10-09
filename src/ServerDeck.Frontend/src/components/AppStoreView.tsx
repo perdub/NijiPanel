@@ -215,10 +215,8 @@ export const AppStoreView: React.FC<AppStoreViewProps> = ({ selectedHost, onNavi
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-carbon-700/80 pb-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-lg font-bold text-white tracking-tight">App Store</h1>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-semibold uppercase tracking-wider">
-              1-CLICK DEPLOY
-            </span>
+            <h1 className="text-lg font-medium text-white tracking-tight">App Store</h1>
+            
           </div>
           <p className="text-xs sm:text-sm text-carbon-400 mt-1 font-mono">
             Deploy 30+ verified Docker Compose stacks or search Docker Hub on {selectedHost.name}
@@ -312,7 +310,7 @@ export const AppStoreView: React.FC<AppStoreViewProps> = ({ selectedHost, onNavi
                             {renderCategoryIcon(template.icon, template.category)}
                           </div>
                           <div>
-                            <h3 className="font-bold text-white text-base tracking-tight font-sans">
+                            <h3 className="font-medium text-white text-base tracking-tight font-sans">
                               {template.name}
                             </h3>
                             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-carbon-850 border border-carbon-700 text-carbon-400">
@@ -351,7 +349,7 @@ export const AppStoreView: React.FC<AppStoreViewProps> = ({ selectedHost, onNavi
                     <div className="flex items-center gap-2 pt-3 border-t border-carbon-800">
                       <button
                         onClick={() => handleOpenDeploy(template)}
-                        className="flex-1 flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-400 text-carbon-950 font-bold text-xs transition-all shadow-md active:scale-95 font-mono"
+                        className="flex-1 flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-400 text-carbon-950 font-medium text-xs transition-all shadow-md active:scale-95 font-mono"
                       >
                         <Sparkles className="w-3.5 h-3.5" />
                         <span>1-Click Deploy</span>
@@ -382,7 +380,7 @@ export const AppStoreView: React.FC<AppStoreViewProps> = ({ selectedHost, onNavi
             <button
               type="submit"
               disabled={hubSearching || !hubQuery.trim()}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-dorito-500 hover:bg-dorito-400 disabled:opacity-50 text-carbon-950 font-bold text-xs transition-all font-mono"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-dorito-500 hover:bg-dorito-400 disabled:opacity-50 text-carbon-950 font-medium text-xs transition-all font-mono"
             >
               {hubSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
               <span>Search Hub</span>
@@ -409,12 +407,12 @@ export const AppStoreView: React.FC<AppStoreViewProps> = ({ selectedHost, onNavi
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2">
                         <Layers className="w-5 h-5 text-dorito-400 shrink-0" />
-                        <h3 className="font-bold text-white text-base truncate font-mono">
+                        <h3 className="font-medium text-white text-base truncate font-mono">
                           {repo.repoName}
                         </h3>
                       </div>
                       {repo.isOfficial && (
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-dorito-500/15 border border-dorito-500/40 text-dorito-400 font-bold shrink-0">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-dorito-500/15 border border-dorito-500/40 text-dorito-400 font-medium shrink-0">
                           OFFICIAL
                         </span>
                       )}
@@ -480,7 +478,7 @@ export const AppStoreView: React.FC<AppStoreViewProps> = ({ selectedHost, onNavi
                   {renderCategoryIcon(selectedTemplate.icon, selectedTemplate.category)}
                 </div>
                 <div>
-                  <h3 className="font-bold text-white text-lg font-sans">
+                  <h3 className="font-medium text-white text-lg font-sans">
                     Deploy {selectedTemplate.name}
                   </h3>
                   <p className="text-xs text-carbon-400 font-mono">
@@ -642,7 +640,7 @@ export const AppStoreView: React.FC<AppStoreViewProps> = ({ selectedHost, onNavi
                         setDeployResult(null);
                         onNavigateToCompose();
                       }}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-400 text-carbon-950 font-bold shadow-md"
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-400 text-carbon-950 font-medium shadow-md"
                     >
                       <span>Open in Compose</span>
                       <ChevronRight className="w-3.5 h-3.5" />
@@ -661,7 +659,7 @@ export const AppStoreView: React.FC<AppStoreViewProps> = ({ selectedHost, onNavi
                   <button
                     onClick={handleExecuteDeploy}
                     disabled={deploying || !projectName.trim()}
-                    className="flex items-center gap-2 px-5 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-400 disabled:opacity-50 text-carbon-950 font-bold shadow-lg"
+                    className="flex items-center gap-2 px-5 py-2 rounded-xl bg-dorito-500 hover:bg-dorito-400 disabled:opacity-50 text-carbon-950 font-medium shadow-lg"
                   >
                     {deploying ? (
                       <>

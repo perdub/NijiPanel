@@ -89,7 +89,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5 leading-none">
-                  <span className="font-extrabold text-base sm:text-lg tracking-tight text-white font-sans">
+                  <span className="font-medium text-base sm:text-lg tracking-tight text-white font-sans">
                     Niji<span className="text-dorito-500">Panel</span>
                   </span>
                   <span className="hidden md:inline-flex text-[9px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/40 text-dorito-400 font-semibold">
@@ -215,7 +215,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Bell className="w-4 h-4" />
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-rose-500 text-[9px] font-mono font-bold text-white shadow-sm ring-2 ring-carbon-900 animate-pulse">
+                <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-rose-500 text-[9px] font-mono font-medium text-white shadow-sm ring-2 ring-carbon-900 animate-pulse">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}

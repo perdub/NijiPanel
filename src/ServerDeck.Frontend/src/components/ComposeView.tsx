@@ -183,10 +183,8 @@ export const ComposeView: React.FC<ComposeViewProps> = ({ selectedHost, onEditFi
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-carbon-700/80 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold text-white tracking-tight">Docker Compose</h1>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-semibold">
-              STUDIO & ORCHESTRATION
-            </span>
+            <h1 className="text-lg font-medium text-white tracking-tight">Docker Compose</h1>
+            
           </div>
           <p className="text-xs sm:text-sm text-carbon-400 mt-1 font-mono">
             Visual topology, stack validation, and orchestration on {selectedHost.name}
@@ -222,8 +220,8 @@ export const ComposeView: React.FC<ComposeViewProps> = ({ selectedHost, onEditFi
           <div className="rounded-2xl bg-carbon-900 border border-carbon-700 p-4 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-dorito-500 shadow-[0_0_8px_rgba(255,209,0,0.6)]" />
-                <h2 className="text-lg font-bold text-white font-sans">{studioStack.projectName}</h2>
+                <span className="w-2.5 h-2.5 rounded-full bg-dorito-500 " />
+                <h2 className="text-lg font-medium text-white font-sans">{studioStack.projectName}</h2>
                 <span className="text-xs font-mono text-carbon-400 bg-carbon-850 px-2 py-0.5 rounded border border-carbon-700">
                   {studioStack.services.length} Services
                 </span>
@@ -322,7 +320,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({ selectedHost, onEditFi
                               <Layers className="w-4 h-4" />
                             </div>
                             <div>
-                              <h3 className="font-bold text-white text-base tracking-tight font-sans group-hover:text-dorito-400 transition-colors">
+                              <h3 className="font-medium text-white text-base tracking-tight font-sans group-hover:text-dorito-400 transition-colors">
                                 {srv.name}
                               </h3>
                               <span className="text-[10px] font-mono text-carbon-400">
@@ -421,7 +419,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({ selectedHost, onEditFi
                               {srv.dependsOn.map((d) => (
                                 <span
                                   key={d}
-                                  className="px-1.5 py-0.2 rounded bg-dorito-500/15 border border-dorito-500/30 text-dorito-400 font-bold"
+                                  className="px-1.5 py-0.2 rounded bg-dorito-500/15 border border-dorito-500/30 text-dorito-400 font-medium"
                                 >
                                   {d}
                                 </span>
@@ -462,7 +460,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({ selectedHost, onEditFi
                   <button
                     onClick={handleSaveYaml}
                     disabled={savingYaml}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-400 text-carbon-950 font-bold text-xs font-mono"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-400 text-carbon-950 font-medium text-xs font-mono"
                   >
                     {savingYaml ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                     <span>Save File</span>
@@ -485,7 +483,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({ selectedHost, onEditFi
           {projects.length === 0 ? (
             <div className="rounded-xl border border-dashed border-carbon-700 bg-carbon-900/60 p-12 text-center text-carbon-400">
               <FolderGit2 className="w-12 h-12 text-carbon-600 mx-auto mb-3" />
-              <h3 className="text-base font-bold text-white">No Compose projects discovered</h3>
+              <h3 className="text-base font-medium text-white">No Compose projects discovered</h3>
               <p className="text-xs text-carbon-400 max-w-sm mx-auto mt-1 mb-4 font-mono">
                 Standard paths (/opt, /home, /root, /var/www) were scanned. You can deploy applications from the App Store tab.
               </p>
@@ -498,8 +496,8 @@ export const ComposeView: React.FC<ComposeViewProps> = ({ selectedHost, onEditFi
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
-                    <span className="w-2.5 h-2.5 rounded-full bg-dorito-500 shadow-[0_0_8px_rgba(255,209,0,0.6)]" />
-                    <h3 className="font-bold text-white text-base truncate font-sans">{p.name}</h3>
+                    <span className="w-2.5 h-2.5 rounded-full bg-dorito-500 " />
+                    <h3 className="font-medium text-white text-base truncate font-sans">{p.name}</h3>
                     <span className="text-[10px] font-mono text-carbon-300 bg-carbon-850 px-2 py-0.5 rounded border border-carbon-700">
                       {p.services.length} services
                     </span>
@@ -612,7 +610,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({ selectedHost, onEditFi
           <div className="w-full max-w-xl bg-carbon-900 border border-carbon-700 rounded-2xl shadow-2xl p-6 relative flex flex-col max-h-[85vh]">
             <div className="flex items-center justify-between pb-3 border-b border-carbon-700 mb-4">
               <div>
-                <h3 className="font-bold text-white text-lg font-sans">
+                <h3 className="font-medium text-white text-lg font-sans">
                   Service: {selectedService.name}
                 </h3>
                 <span className="text-xs text-dorito-400 font-mono">
@@ -690,7 +688,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({ selectedHost, onEditFi
                     {selectedService.dependsOn.map((d) => (
                       <span
                         key={d}
-                        className="px-2 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-bold"
+                        className="px-2 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-medium"
                       >
                         {d}
                       </span>
@@ -724,7 +722,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({ selectedHost, onEditFi
                   <AlertTriangle className="w-5 h-5 text-rose-400" />
                 )}
                 <div>
-                  <h3 className="font-bold text-white text-base font-sans">
+                  <h3 className="font-medium text-white text-base font-sans">
                     {validationResult.valid ? 'Compose Configuration Valid' : 'Compose Validation Failed'}
                   </h3>
                   <span className="text-xs text-carbon-400 font-mono truncate block max-w-md">
@@ -780,7 +778,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({ selectedHost, onEditFi
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
           <div className="w-full max-w-3xl bg-carbon-900 border border-carbon-700 rounded-2xl shadow-2xl p-5 relative flex flex-col h-[75vh]">
             <div className="flex items-center justify-between pb-3 border-b border-carbon-700 mb-3">
-              <h3 className="font-bold text-white text-base truncate font-sans">{actionOutput.title}</h3>
+              <h3 className="font-medium text-white text-base truncate font-sans">{actionOutput.title}</h3>
               <button
                 onClick={() => setActionOutput(null)}
                 className="p-1.5 rounded-lg text-carbon-400 hover:text-white"

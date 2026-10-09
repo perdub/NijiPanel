@@ -48,7 +48,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         {/* Section Title & Subtitle */}
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h1 className="text-sm sm:text-base font-bold text-white font-sans tracking-tight truncate">
+            <h1 className="text-sm sm:text-base font-medium text-white font-sans tracking-tight truncate">
               {currentTab.title}
             </h1>
             {selectedHost && (

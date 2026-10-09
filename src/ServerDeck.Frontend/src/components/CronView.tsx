@@ -222,9 +222,7 @@ export const CronView: React.FC<CronViewProps> = ({
               <h2 className="text-sm font-semibold tracking-wider text-slate-100 uppercase">
                 Cron Job Manager
               </h2>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 bg-carbon-800 text-dorito-500 border border-carbon-700">
-                CRONTAB • AGENTLESS
-              </span>
+              
             </div>
             <p className="text-xs text-slate-400">
               Manage system scheduled tasks and recurring scripts via SSH
@@ -353,7 +351,7 @@ export const CronView: React.FC<CronViewProps> = ({
                     {/* Schedule */}
                     <td className="py-3 px-4">
                       <div className="space-y-1">
-                        <span className="inline-block px-2 py-0.5 bg-carbon-800 text-dorito-500 border border-carbon-700 text-xs font-mono font-bold">
+                        <span className="inline-block px-2 py-0.5 bg-carbon-800 text-dorito-500 border border-carbon-700 text-xs font-mono font-medium">
                           {job.schedule}
                         </span>
                         <div className="text-[11px] text-slate-400 font-sans">
