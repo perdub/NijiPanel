@@ -32,18 +32,21 @@ builder.Services.AddScoped<IBenchmarkService, BenchmarkService>();
 builder.Services.AddScoped<IFirewallService, FirewallService>();
 builder.Services.AddSingleton<IPasskeyService, PasskeyService>();
 
-// JWT Authentication configuration
 var jwtSecret = builder.Configuration["JWT_SECRET"];
 if (string.IsNullOrWhiteSpace(jwtSecret))
 {
     var secretFile = Path.Combine(AppContext.BaseDirectory, "data", "jwt.key");
+    Directory.CreateDirectory(Path.GetDirectoryName(secretFile)!);
     if (File.Exists(secretFile))
     {
         jwtSecret = File.ReadAllText(secretFile).Trim();
     }
     else
     {
-        jwtSecret = "DefaultServerDeckSecretKeyForLocalDevSigningLongKey1234567890!@#";
+        var randomBytes = new byte[64];
+        RandomNumberGenerator.Fill(randomBytes);
+        jwtSecret = Convert.ToBase64String(randomBytes);
+        File.WriteAllText(secretFile, jwtSecret);
     }
 }
 var jwtKey = Encoding.UTF8.GetBytes(jwtSecret.PadRight(64, '!')[..64]);
