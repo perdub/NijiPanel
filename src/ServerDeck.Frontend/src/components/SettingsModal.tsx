@@ -19,10 +19,15 @@ import {
   Trash2,
   ShieldCheck,
   KeyRound,
-  Wrench
+  Wrench,
+  Terminal,
+  Search,
+  Edit2,
+  RotateCcw,
+  CheckCircle2
 } from 'lucide-react';
 import { api, bufferToBase64Url, base64UrlToBuffer } from '../api';
-import { MasterKey, Passkey, AlertSettings, TestAlertResult } from '../types';
+import { MasterKey, Passkey, AlertSettings, TestAlertResult, CommandTemplate } from '../types';
 import { DoritoLogo } from './DoritoLogo';
 
 interface SettingsModalProps {
@@ -40,7 +45,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onMasterKeyUpdated,
   onBackupRestored,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'key' | 'password' | 'alerts' | 'passkeys' | 'backup' | 'provisioning'>('key');
+  const [activeSubTab, setActiveSubTab] = useState<'key' | 'password' | 'alerts' | 'passkeys' | 'backup' | 'provisioning' | 'commands'>('key');
   const [copiedKey, setCopiedKey] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
 
@@ -95,13 +100,89 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [localExporting, setLocalExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Command Templates States
+  const [commandsList, setCommandsList] = useState<CommandTemplate[]>([]);
+  const [commandsLoading, setCommandsLoading] = useState(false);
+  const [commandSearch, setCommandSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editingCommand, setEditingCommand] = useState<string>('');
+  const [editingTimeout, setEditingTimeout] = useState<number>(30);
+  const [editingDesc, setEditingDesc] = useState<string>('');
+  const [cmdSaving, setCmdSaving] = useState(false);
+  const [cmdMsg, setCmdMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [copiedCmdKey, setCopiedCmdKey] = useState<string | null>(null);
+
   useEffect(() => {
     if (isOpen) {
       if (activeSubTab === 'alerts') loadAlertSettings();
       if (activeSubTab === 'passkeys') loadPasskeys();
       if (activeSubTab === 'provisioning') loadBootstrapSettings();
+      if (activeSubTab === 'commands') loadCommands();
     }
   }, [isOpen, activeSubTab]);
+
+  const loadCommands = async () => {
+    setCommandsLoading(true);
+    setCmdMsg(null);
+    try {
+      const data = await api.commands.getAll();
+      setCommandsList(data);
+    } catch (err: any) {
+      setCmdMsg({ type: 'error', text: `Failed to load commands: ${err.message}` });
+    } finally {
+      setCommandsLoading(false);
+    }
+  };
+
+  const handleStartEditCommand = (cmd: CommandTemplate) => {
+    setEditingKey(cmd.key);
+    setEditingCommand(cmd.command);
+    setEditingTimeout(cmd.timeoutSeconds);
+    setEditingDesc(cmd.description);
+    setCmdMsg(null);
+  };
+
+  const handleSaveCommand = async (key: string) => {
+    setCmdSaving(true);
+    setCmdMsg(null);
+    try {
+      const updated = await api.commands.update(key, {
+        command: editingCommand,
+        timeoutSeconds: editingTimeout,
+        description: editingDesc,
+      });
+      setCommandsList(prev => prev.map(c => c.key === key ? updated : c));
+      setEditingKey(null);
+      setCmdMsg({ type: 'success', text: `Command '${key}' updated successfully!` });
+    } catch (err: any) {
+      setCmdMsg({ type: 'error', text: `Failed to save command: ${err.message}` });
+    } finally {
+      setCmdSaving(false);
+    }
+  };
+
+  const handleResetCommands = async () => {
+    if (!confirm('Are you sure you want to reset all command templates to default? Any custom modifications will be overwritten.')) return;
+    setCommandsLoading(true);
+    setCmdMsg(null);
+    try {
+      const res = await api.commands.reset();
+      await loadCommands();
+      setCmdMsg({ type: 'success', text: res.message || 'All commands reset to defaults' });
+    } catch (err: any) {
+      setCmdMsg({ type: 'error', text: `Failed to reset commands: ${err.message}` });
+    } finally {
+      setCommandsLoading(false);
+    }
+  };
+
+  const handleCopyCommand = (key: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedCmdKey(key);
+    setTimeout(() => setCopiedCmdKey(null), 1500);
+  };
+
 
   const loadBootstrapSettings = async () => {
     setBootstrapLoading(true);
@@ -395,9 +476,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  const commandCategories = ['all', 'System', 'Network', 'Docker', 'Systemd', 'Users', 'Packages', 'Firewall', 'Cron', 'Files'];
+
+  const filteredCommands = commandsList.filter((cmd) => {
+    const matchesCat = selectedCategory === 'all' || cmd.category.toLowerCase() === selectedCategory.toLowerCase();
+    const matchesSearch =
+      !commandSearch ||
+      cmd.key.toLowerCase().includes(commandSearch.toLowerCase()) ||
+      (cmd.description || '').toLowerCase().includes(commandSearch.toLowerCase()) ||
+      (cmd.command || '').toLowerCase().includes(commandSearch.toLowerCase());
+    return matchesCat && matchesSearch;
+  });
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
-      <div className="w-full max-w-xl bg-carbon-900 border border-carbon-700 rounded-2xl shadow-2xl p-6 relative max-h-[92vh] overflow-y-auto">
+      <div className={`w-full ${activeSubTab === 'commands' ? 'max-w-4xl' : 'max-w-xl'} bg-carbon-900 border border-carbon-700 rounded-2xl shadow-2xl p-6 relative max-h-[92vh] overflow-y-auto transition-all`}>
         <div className="flex items-center justify-between pb-3 border-b border-carbon-700 mb-4">
           <div className="flex items-center gap-2.5">
             <DoritoLogo size={28} />
@@ -411,10 +504,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Sub Navigation */}
-        <div className="flex border-b border-carbon-700 mb-5 gap-4 text-xs font-mono font-semibold">
+        <div className="flex border-b border-carbon-700 mb-5 gap-3.5 text-xs font-mono font-semibold overflow-x-auto pb-1 scrollbar-thin">
           <button
             onClick={() => setActiveSubTab('key')}
-            className={`pb-2.5 border-b-2 transition-colors ${
+            className={`pb-2.5 border-b-2 transition-colors whitespace-nowrap ${
               activeSubTab === 'key'
                 ? 'border-dorito-500 text-dorito-400 font-bold'
                 : 'border-transparent text-carbon-400 hover:text-white'
@@ -424,7 +517,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
           <button
             onClick={() => setActiveSubTab('password')}
-            className={`pb-2.5 border-b-2 transition-colors ${
+            className={`pb-2.5 border-b-2 transition-colors whitespace-nowrap ${
               activeSubTab === 'password'
                 ? 'border-dorito-500 text-dorito-400 font-bold'
                 : 'border-transparent text-carbon-400 hover:text-white'
@@ -434,7 +527,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
           <button
             onClick={() => setActiveSubTab('alerts')}
-            className={`pb-2.5 border-b-2 transition-colors ${
+            className={`pb-2.5 border-b-2 transition-colors whitespace-nowrap ${
               activeSubTab === 'alerts'
                 ? 'border-dorito-500 text-dorito-400 font-bold'
                 : 'border-transparent text-carbon-400 hover:text-white'
@@ -444,7 +537,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
           <button
             onClick={() => setActiveSubTab('passkeys')}
-            className={`pb-2.5 border-b-2 transition-colors ${
+            className={`pb-2.5 border-b-2 transition-colors whitespace-nowrap ${
               activeSubTab === 'passkeys'
                 ? 'border-dorito-500 text-dorito-400 font-bold'
                 : 'border-transparent text-carbon-400 hover:text-white'
@@ -454,7 +547,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
           <button
             onClick={() => setActiveSubTab('backup')}
-            className={`pb-2.5 border-b-2 transition-colors ${
+            className={`pb-2.5 border-b-2 transition-colors whitespace-nowrap ${
               activeSubTab === 'backup'
                 ? 'border-dorito-500 text-dorito-400 font-bold'
                 : 'border-transparent text-carbon-400 hover:text-white'
@@ -464,13 +557,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
           <button
             onClick={() => setActiveSubTab('provisioning')}
-            className={`pb-2.5 border-b-2 transition-colors ${
+            className={`pb-2.5 border-b-2 transition-colors whitespace-nowrap ${
               activeSubTab === 'provisioning'
                 ? 'border-dorito-500 text-dorito-400 font-bold'
                 : 'border-transparent text-carbon-400 hover:text-white'
             }`}
           >
             Host Provisioning
+          </button>
+          <button
+            onClick={() => setActiveSubTab('commands')}
+            className={`pb-2.5 border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+              activeSubTab === 'commands'
+                ? 'border-dorito-500 text-dorito-400 font-bold'
+                : 'border-transparent text-carbon-400 hover:text-white'
+            }`}
+          >
+            <Terminal className="w-3.5 h-3.5" />
+            Commands
           </button>
         </div>
 
@@ -1040,6 +1144,267 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </button>
             </div>
           </form>
+        )}
+
+        {/* Tab 7: Commands Registry */}
+        {activeSubTab === 'commands' && (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-white text-sm font-medium font-sans">Shell Command Registry</h4>
+                <p className="text-xs text-carbon-400 font-mono mt-0.5">
+                  Centralized command templates executed over SSH. Customizations persist across restarts.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleResetCommands}
+                  disabled={commandsLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/30 hover:border-red-500/60 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-mono transition-colors disabled:opacity-50"
+                  title="Reset all command templates to default definitions"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset to Defaults</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={loadCommands}
+                  disabled={commandsLoading}
+                  className="p-1.5 rounded-lg border border-carbon-700 hover:bg-carbon-800 text-carbon-400 hover:text-white transition-colors"
+                  title="Refresh commands list"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${commandsLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </div>
+
+            {/* Notification message */}
+            {cmdMsg && (
+              <div
+                className={`p-3 rounded-lg text-xs font-mono flex items-center justify-between ${
+                  cmdMsg.type === 'success'
+                    ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
+                    : 'bg-red-500/10 border border-red-500/30 text-red-400'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {cmdMsg.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                  )}
+                  <span>{cmdMsg.text}</span>
+                </div>
+                <button onClick={() => setCmdMsg(null)} className="text-carbon-400 hover:text-white">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Search and Category Filters */}
+            <div className="space-y-2.5">
+              <div className="relative">
+                <Search className="w-4 h-4 text-carbon-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={commandSearch}
+                  onChange={(e) => setCommandSearch(e.target.value)}
+                  placeholder="Search commands, keys, descriptions, placeholders..."
+                  className="w-full pl-9 pr-8 py-2 bg-black/60 border border-carbon-700 rounded-xl text-xs font-mono text-carbon-200 placeholder-carbon-500 focus:outline-none focus:border-dorito-500"
+                />
+                {commandSearch && (
+                  <button
+                    onClick={() => setCommandSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-carbon-400 hover:text-white"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Category Pills */}
+              <div className="flex flex-wrap gap-1.5 pb-1">
+                {commandCategories.map((cat) => {
+                  const count =
+                    cat === 'all'
+                      ? commandsList.length
+                      : commandsList.filter((c) => c.category.toLowerCase() === cat.toLowerCase()).length;
+                  const isSelected = selectedCategory === cat;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all flex items-center gap-1.5 border ${
+                        isSelected
+                          ? 'bg-dorito-500/20 border-dorito-500 text-dorito-400 font-bold'
+                          : 'bg-carbon-800/80 border-carbon-700/80 text-carbon-400 hover:text-white hover:border-carbon-600'
+                      }`}
+                    >
+                      <span className="capitalize">{cat}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                          isSelected ? 'bg-dorito-500 text-carbon-950 font-bold' : 'bg-carbon-700 text-carbon-400'
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Commands List */}
+            {commandsLoading && commandsList.length === 0 ? (
+              <div className="py-12 flex flex-col items-center justify-center text-carbon-400 text-xs font-mono">
+                <RefreshCw className="w-5 h-5 animate-spin text-dorito-500 mb-2" />
+                <span>Loading command templates...</span>
+              </div>
+            ) : filteredCommands.length === 0 ? (
+              <div className="text-center py-12 text-carbon-500 text-xs font-mono border border-dashed border-carbon-800 rounded-xl">
+                No command templates match your query.
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-1.5 scrollbar-thin">
+                {filteredCommands.map((cmd) => {
+                  const isEditing = editingKey === cmd.key;
+                  return (
+                    <div
+                      key={cmd.key}
+                      className="p-3.5 rounded-xl bg-carbon-800/50 border border-carbon-700/80 hover:border-carbon-600 transition-colors"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-semibold text-xs text-dorito-400">
+                            {cmd.key}
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-carbon-800 border border-carbon-700 text-carbon-300">
+                            {cmd.category}
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-carbon-900 border border-carbon-800 text-carbon-400">
+                            {cmd.timeoutSeconds}s
+                          </span>
+                          {cmd.isCustom ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-500/15 border border-amber-500/30 text-amber-400 font-semibold">
+                              CUSTOMIZED
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-carbon-800/80 text-carbon-500">
+                              DEFAULT
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyCommand(cmd.key, cmd.command)}
+                            className="p-1.5 rounded-lg text-carbon-400 hover:text-white hover:bg-carbon-800 transition-colors"
+                            title="Copy shell command"
+                          >
+                            {copiedCmdKey === cmd.key ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                          {!isEditing ? (
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditCommand(cmd)}
+                              className="p-1.5 rounded-lg text-carbon-400 hover:text-dorito-400 hover:bg-carbon-800 transition-colors"
+                              title="Edit command template"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setEditingKey(null)}
+                              className="p-1.5 rounded-lg text-carbon-400 hover:text-white hover:bg-carbon-800 transition-colors"
+                              title="Cancel editing"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {isEditing ? (
+                        <div className="space-y-2.5 mt-2 pt-2 border-t border-carbon-750">
+                          <div>
+                            <label className="block text-[11px] text-carbon-400 font-mono mb-1">
+                              Shell Command Template (supports {'{placeholder}'} substitutions):
+                            </label>
+                            <textarea
+                              rows={5}
+                              value={editingCommand}
+                              onChange={(e) => setEditingCommand(e.target.value)}
+                              className="w-full bg-black/90 border border-carbon-700 rounded-lg p-2.5 font-mono text-xs text-dorito-300 focus:outline-none focus:border-dorito-500 leading-relaxed"
+                            />
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <div className="sm:col-span-2">
+                              <label className="block text-[11px] text-carbon-400 font-mono mb-1">
+                                Description:
+                              </label>
+                              <input
+                                type="text"
+                                value={editingDesc}
+                                onChange={(e) => setEditingDesc(e.target.value)}
+                                className="w-full bg-black/70 border border-carbon-700 rounded-lg px-2.5 py-1.5 text-xs text-carbon-200 focus:outline-none focus:border-dorito-500 font-mono"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] text-carbon-400 font-mono mb-1">
+                                Timeout (seconds):
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                max={600}
+                                value={editingTimeout}
+                                onChange={(e) => setEditingTimeout(parseInt(e.target.value) || 10)}
+                                className="w-full bg-black/70 border border-carbon-700 rounded-lg px-2.5 py-1.5 text-xs text-carbon-200 focus:outline-none focus:border-dorito-500 font-mono"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex justify-end gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setEditingKey(null)}
+                              className="px-3 py-1.5 rounded-lg border border-carbon-700 hover:bg-carbon-800 text-carbon-400 hover:text-white text-xs font-mono transition-colors"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              disabled={cmdSaving}
+                              onClick={() => handleSaveCommand(cmd.key)}
+                              className="px-4 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-mono font-medium text-xs transition-colors disabled:opacity-50 shadow-md shadow-dorito-500/20"
+                            >
+                              {cmdSaving ? 'Saving...' : 'Save Override'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-[11px] text-carbon-400 mb-2 leading-relaxed font-sans">
+                            {cmd.description}
+                          </p>
+                          <pre className="p-2.5 rounded-lg bg-black/80 border border-carbon-800 font-mono text-[11px] text-carbon-300 max-h-28 overflow-y-auto whitespace-pre-wrap select-all leading-relaxed">
+                            {cmd.command}
+                          </pre>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

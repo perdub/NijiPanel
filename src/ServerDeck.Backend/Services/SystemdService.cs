@@ -15,6 +15,7 @@ public class SystemdService : ISystemdService
 {
     private readonly IHostService _hostService;
     private readonly ISshConnectionManager _sshManager;
+    private readonly ICommandRegistry _cmdRegistry;
     private readonly ILogger<SystemdService> _logger;
 
     private static readonly HashSet<string> AllowedActions = new(StringComparer.OrdinalIgnoreCase)
@@ -30,10 +31,12 @@ public class SystemdService : ISystemdService
     public SystemdService(
         IHostService hostService,
         ISshConnectionManager sshManager,
+        ICommandRegistry cmdRegistry,
         ILogger<SystemdService> logger)
     {
         _hostService = hostService;
         _sshManager = sshManager;
+        _cmdRegistry = cmdRegistry;
         _logger = logger;
     }
 
@@ -43,8 +46,9 @@ public class SystemdService : ISystemdService
         if (host == null) throw new KeyNotFoundException($"Host {hostId} not found");
 
         // Try JSON output first (systemd >= 240)
-        var jsonCmd = "systemctl list-units --type=service --all --no-pager --output=json 2>/dev/null";
-        var res = await _sshManager.RunCommandAsync(host, jsonCmd, timeoutSeconds: 20);
+        var jsonCmd = _cmdRegistry.GetCommand("Systemd.ListUnitsJson");
+        var jsonTimeout = _cmdRegistry.GetTimeout("Systemd.ListUnitsJson", 20);
+        var res = await _sshManager.RunCommandAsync(host, jsonCmd, timeoutSeconds: jsonTimeout);
 
         var list = new List<SystemdServiceDto>();
 
@@ -79,8 +83,9 @@ public class SystemdService : ISystemdService
         }
 
         // Fallback to plain text parsing
-        var plainCmd = "systemctl list-units --type=service --all --no-pager --plain --no-legend";
-        var plainRes = await _sshManager.RunCommandAsync(host, plainCmd, timeoutSeconds: 20);
+        var plainCmd = _cmdRegistry.GetCommand("Systemd.ListUnitsPlain");
+        var plainTimeout = _cmdRegistry.GetTimeout("Systemd.ListUnitsPlain", 20);
+        var plainRes = await _sshManager.RunCommandAsync(host, plainCmd, timeoutSeconds: plainTimeout);
         var lines = (plainRes.Output ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         foreach (var line in lines)
@@ -125,8 +130,9 @@ public class SystemdService : ISystemdService
         }
 
         var cleanUnit = SanitizeUnitName(unitName);
-        var cmd = $"systemctl {cleanAction} {cleanUnit} 2>&1";
-        var res = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: 30);
+        var cmd = _cmdRegistry.GetCommand("Systemd.ServiceAction", new { action = cleanAction, unitName = cleanUnit });
+        var timeout = _cmdRegistry.GetTimeout("Systemd.ServiceAction", 30);
+        var res = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
 
         var output = (res.Output + "\n" + res.Error).Trim();
         var success = res.ExitCode == 0;
@@ -154,8 +160,9 @@ public class SystemdService : ISystemdService
             priorityFlag = $"-p {priority.Trim().ToLowerInvariant()}";
         }
 
-        var cmd = $"journalctl -u {cleanUnit} -n {cleanLines} --no-pager {priorityFlag}".Trim();
-        var res = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: 25);
+        var cmd = _cmdRegistry.GetCommand("Systemd.ServiceLogs", new { unitName = cleanUnit, lines = cleanLines, priorityFlag });
+        var logTimeout = _cmdRegistry.GetTimeout("Systemd.ServiceLogs", 25);
+        var res = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: logTimeout);
 
         var output = res.Output ?? "";
         if (string.IsNullOrWhiteSpace(output) && !string.IsNullOrWhiteSpace(res.Error))

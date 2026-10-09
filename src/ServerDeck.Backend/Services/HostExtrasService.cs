@@ -21,15 +21,18 @@ public class HostExtrasService : IHostExtrasService
     private readonly DatabaseContext _dbContext;
     private readonly IHostService _hostService;
     private readonly ISshConnectionManager _sshManager;
+    private readonly ICommandRegistry _cmdRegistry;
 
     public HostExtrasService(
         DatabaseContext dbContext,
         IHostService hostService,
-        ISshConnectionManager sshManager)
+        ISshConnectionManager sshManager,
+        ICommandRegistry cmdRegistry)
     {
         _dbContext = dbContext;
         _hostService = hostService;
         _sshManager = sshManager;
+        _cmdRegistry = cmdRegistry;
     }
 
     public async Task<List<HostPortDto>> GetPortsAsync(string hostId)
@@ -137,7 +140,9 @@ public class HostExtrasService : IHostExtrasService
         var host = await _hostService.GetHostEntityAsync(hostId);
         if (host == null) throw new KeyNotFoundException($"Host {hostId} not found");
 
-        var res = await _sshManager.RunCommandAsync(host, "ss -tulpn 2>/dev/null", timeoutSeconds: 15);
+        var cmd = _cmdRegistry.GetCommand("System.LiveSockets");
+        var timeout = _cmdRegistry.GetTimeout("System.LiveSockets", 15);
+        var res = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
         var output = res.Output ?? "";
 
         var list = new List<LiveSocketDto>();

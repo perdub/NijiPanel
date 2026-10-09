@@ -509,4 +509,20 @@ export interface HostNetworkInfo {
   checkedAt: string;
 }
 
+export interface CommandTemplate {
+  key: string;
+  category: string;
+  command: string;
+  description: string;
+  timeoutSeconds: number;
+  isCustom: boolean;
+  updatedAt: string;
+}
+
+export interface UpdateCommandTemplateRequest {
+  command: string;
+  timeoutSeconds?: number;
+  description?: string;
+}
+
 

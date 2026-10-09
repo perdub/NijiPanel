@@ -13,15 +13,18 @@ public class PackageUpdateService : IPackageUpdateService
 {
     private readonly IHostService _hostService;
     private readonly ISshConnectionManager _sshManager;
+    private readonly ICommandRegistry _cmdRegistry;
     private readonly ILogger<PackageUpdateService> _logger;
 
     public PackageUpdateService(
         IHostService hostService,
         ISshConnectionManager sshManager,
+        ICommandRegistry cmdRegistry,
         ILogger<PackageUpdateService> logger)
     {
         _hostService = hostService;
         _sshManager = sshManager;
+        _cmdRegistry = cmdRegistry;
         _logger = logger;
     }
 
@@ -30,31 +33,9 @@ public class PackageUpdateService : IPackageUpdateService
         var host = await _hostService.GetHostEntityAsync(hostId);
         if (host == null) throw new KeyNotFoundException($"Host {hostId} not found");
 
-        const string checkScript = @"
-if command -v apt-get >/dev/null 2>&1; then
-  echo '---PM:apt---'
-  apt-get update -qq 2>&1 || true
-  apt-get -s upgrade 2>&1
-elif command -v dnf >/dev/null 2>&1; then
-  echo '---PM:dnf---'
-  dnf check-update 2>&1 || true
-elif command -v yum >/dev/null 2>&1; then
-  echo '---PM:yum---'
-  yum check-update 2>&1 || true
-elif command -v pacman >/dev/null 2>&1; then
-  echo '---PM:pacman---'
-  pacman -Sy >/dev/null 2>&1 || true
-  pacman -Qu 2>&1
-elif command -v apk >/dev/null 2>&1; then
-  echo '---PM:apk---'
-  apk update >/dev/null 2>&1 || true
-  apk version -v -l '<' 2>&1
-else
-  echo '---PM:unknown---'
-fi
-";
-
-        var res = await _sshManager.RunCommandAsync(host, checkScript, timeoutSeconds: 60);
+        var checkScript = _cmdRegistry.GetCommand("Packages.CheckUpdates");
+        var timeout = _cmdRegistry.GetTimeout("Packages.CheckUpdates", 60);
+        var res = await _sshManager.RunCommandAsync(host, checkScript, timeoutSeconds: timeout);
         var raw = (res.Output ?? "").Trim();
 
         var pm = "unknown";
@@ -166,25 +147,11 @@ fi
         var host = await _hostService.GetHostEntityAsync(hostId);
         if (host == null) throw new KeyNotFoundException($"Host {hostId} not found");
 
-        const string upgradeScript = @"
-if command -v apt-get >/dev/null 2>&1; then
-  DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
-elif command -v dnf >/dev/null 2>&1; then
-  dnf upgrade -y
-elif command -v yum >/dev/null 2>&1; then
-  yum upgrade -y
-elif command -v pacman >/dev/null 2>&1; then
-  pacman -Syu --noconfirm
-elif command -v apk >/dev/null 2>&1; then
-  apk upgrade
-else
-  echo 'No supported package manager found (apt, dnf, yum, pacman, apk)' >&2
-  exit 1
-fi
-";
+        var upgradeScript = _cmdRegistry.GetCommand("Packages.UpgradeAll");
+        var timeout = _cmdRegistry.GetTimeout("Packages.UpgradeAll", 360);
 
         _logger.LogInformation("Starting package upgrade on host {HostId}", hostId);
-        var res = await _sshManager.RunCommandAsync(host, upgradeScript, timeoutSeconds: 360);
+        var res = await _sshManager.RunCommandAsync(host, upgradeScript, timeoutSeconds: timeout);
 
         var success = res.ExitCode == 0;
         return new PackageUpgradeResult(

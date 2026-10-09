@@ -14,15 +14,18 @@ public class FilesController : ControllerBase
     private readonly IHostService _hostService;
     private readonly ISftpService _sftpService;
     private readonly ISshConnectionManager _sshManager;
+    private readonly ICommandRegistry _cmdRegistry;
 
     public FilesController(
         IHostService hostService,
         ISftpService sftpService,
-        ISshConnectionManager sshManager)
+        ISshConnectionManager sshManager,
+        ICommandRegistry cmdRegistry)
     {
         _hostService = hostService;
         _sftpService = sftpService;
         _sshManager = sshManager;
+        _cmdRegistry = cmdRegistry;
     }
 
     private async Task<HostEntity?> GetHostOrNotFoundAsync(string hostId)
@@ -239,11 +242,17 @@ public class FilesController : ControllerBase
         }
 
         // du command with -k (KiB), specified depth, excludes, and path
-        var cmd = $"du -k -d {clampedDepth}{excludeSb} {EscapeBashArg(normalizedPath)} 2>/dev/null";
+        var cmd = _cmdRegistry.GetCommand("Files.DiskUsage", new
+        {
+            depth = clampedDepth,
+            excludes = excludeSb.ToString(),
+            path = EscapeBashArg(normalizedPath)
+        });
+        var timeout = _cmdRegistry.GetTimeout("Files.DiskUsage", 45);
 
         try
         {
-            var result = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: 45);
+            var result = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
             var lines = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
             var rawItems = new List<(long sizeKb, string entryPath)>();
@@ -342,19 +351,22 @@ public class FilesController : ControllerBase
 
         var itemsEscaped = string.Join(" ", request.Items.Select(EscapeBashArg));
         string cmd;
+        int timeout;
 
         if (format == "zip")
         {
-            cmd = $"cd {EscapeBashArg(dirPath)} && zip -r {EscapeBashArg(archiveName)} {itemsEscaped}";
+            cmd = _cmdRegistry.GetCommand("Files.ArchiveZip", new { dirPath = EscapeBashArg(dirPath), archiveName = EscapeBashArg(archiveName), items = itemsEscaped });
+            timeout = _cmdRegistry.GetTimeout("Files.ArchiveZip", 120);
         }
         else
         {
-            cmd = $"cd {EscapeBashArg(dirPath)} && tar -czf {EscapeBashArg(archiveName)} {itemsEscaped}";
+            cmd = _cmdRegistry.GetCommand("Files.ArchiveTar", new { dirPath = EscapeBashArg(dirPath), archiveName = EscapeBashArg(archiveName), items = itemsEscaped });
+            timeout = _cmdRegistry.GetTimeout("Files.ArchiveTar", 120);
         }
 
         try
         {
-            var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: 120);
+            var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
             if (exitCode != 0)
             {
                 if (error.Contains("zip: command not found") || error.Contains("zip: not found"))
@@ -388,21 +400,26 @@ public class FilesController : ControllerBase
         var fileName = Path.GetFileName(request.ArchivePath).ToLowerInvariant();
 
         string cmd;
+        int timeout;
         if (fileName.EndsWith(".zip"))
         {
-            cmd = $"mkdir -p {EscapeBashArg(destPath)} && unzip -o {EscapeBashArg(request.ArchivePath)} -d {EscapeBashArg(destPath)}";
+            cmd = _cmdRegistry.GetCommand("Files.ExtractZip", new { destPath = EscapeBashArg(destPath), archivePath = EscapeBashArg(request.ArchivePath) });
+            timeout = _cmdRegistry.GetTimeout("Files.ExtractZip", 120);
         }
         else if (fileName.EndsWith(".tar.gz") || fileName.EndsWith(".tgz"))
         {
-            cmd = $"mkdir -p {EscapeBashArg(destPath)} && tar -xzf {EscapeBashArg(request.ArchivePath)} -C {EscapeBashArg(destPath)}";
+            cmd = _cmdRegistry.GetCommand("Files.ExtractTarGz", new { destPath = EscapeBashArg(destPath), archivePath = EscapeBashArg(request.ArchivePath) });
+            timeout = _cmdRegistry.GetTimeout("Files.ExtractTarGz", 120);
         }
         else if (fileName.EndsWith(".tar.bz2") || fileName.EndsWith(".tbz2"))
         {
-            cmd = $"mkdir -p {EscapeBashArg(destPath)} && tar -xjf {EscapeBashArg(request.ArchivePath)} -C {EscapeBashArg(destPath)}";
+            cmd = _cmdRegistry.GetCommand("Files.ExtractTarBz2", new { destPath = EscapeBashArg(destPath), archivePath = EscapeBashArg(request.ArchivePath) });
+            timeout = _cmdRegistry.GetTimeout("Files.ExtractTarBz2", 120);
         }
         else if (fileName.EndsWith(".tar"))
         {
-            cmd = $"mkdir -p {EscapeBashArg(destPath)} && tar -xf {EscapeBashArg(request.ArchivePath)} -C {EscapeBashArg(destPath)}";
+            cmd = _cmdRegistry.GetCommand("Files.ExtractTar", new { destPath = EscapeBashArg(destPath), archivePath = EscapeBashArg(request.ArchivePath) });
+            timeout = _cmdRegistry.GetTimeout("Files.ExtractTar", 120);
         }
         else
         {
@@ -411,7 +428,7 @@ public class FilesController : ControllerBase
 
         try
         {
-            var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: 120);
+            var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
             if (exitCode != 0)
             {
                 if (error.Contains("unzip: command not found") || error.Contains("unzip: not found"))

@@ -17,15 +17,18 @@ public class LinuxUserService : ILinuxUserService
 {
     private readonly IHostService _hostService;
     private readonly ISshConnectionManager _sshManager;
+    private readonly ICommandRegistry _cmdRegistry;
     private readonly ILogger<LinuxUserService> _logger;
 
     public LinuxUserService(
         IHostService hostService,
         ISshConnectionManager sshManager,
+        ICommandRegistry cmdRegistry,
         ILogger<LinuxUserService> logger)
     {
         _hostService = hostService;
         _sshManager = sshManager;
+        _cmdRegistry = cmdRegistry;
         _logger = logger;
     }
 
@@ -34,15 +37,9 @@ public class LinuxUserService : ILinuxUserService
         var host = await _hostService.GetHostEntityAsync(hostId);
         if (host == null) throw new KeyNotFoundException($"Host {hostId} not found");
 
-        const string inspectCmd = @"
-cat /etc/passwd
-echo '===GROUP_DELIMITER==='
-cat /etc/group
-echo '===SHADOW_DELIMITER==='
-passwd -Sa 2>/dev/null || cat /etc/shadow 2>/dev/null || true
-";
-
-        var res = await _sshManager.RunCommandAsync(host, inspectCmd, timeoutSeconds: 20);
+        var inspectCmd = _cmdRegistry.GetCommand("Users.ListUsers");
+        var timeout = _cmdRegistry.GetTimeout("Users.ListUsers", 20);
+        var res = await _sshManager.RunCommandAsync(host, inspectCmd, timeoutSeconds: timeout);
         var raw = res.Output ?? "";
 
         var sections = raw.Split("===GROUP_DELIMITER===\n", StringSplitOptions.None);
@@ -191,20 +188,23 @@ passwd -Sa 2>/dev/null || cat /etc/shadow 2>/dev/null || true
         }
 
         var homeFlag = request.CreateHome ? "-m" : "-M";
-        var cmd = $"useradd {homeFlag} -s {cleanShell} {cleanUser}";
+        var cmd = _cmdRegistry.GetCommand("Users.CreateUser", new { homeFlag, shell = cleanShell, username = cleanUser });
 
         if (!string.IsNullOrEmpty(request.Password))
         {
             var escapedPw = request.Password.Replace("'", "'\\''");
-            cmd += $" && echo '{cleanUser}:{escapedPw}' | chpasswd";
+            var pwCmd = _cmdRegistry.GetCommand("Users.SetPassword", new { username = cleanUser, password = escapedPw });
+            cmd += $" && {pwCmd}";
         }
 
         if (request.Sudo)
         {
-            cmd += $" && (usermod -aG sudo {cleanUser} 2>/dev/null || usermod -aG wheel {cleanUser} 2>/dev/null || true)";
+            var sudoCmd = _cmdRegistry.GetCommand("Users.AddSudo", new { username = cleanUser });
+            cmd += $" && ({sudoCmd} || true)";
         }
 
-        var res = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: 30);
+        var timeout = _cmdRegistry.GetTimeout("Users.CreateUser", 30);
+        var res = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
         var success = res.ExitCode == 0;
         var output = (res.Output + "\n" + res.Error).Trim();
 
@@ -221,8 +221,9 @@ passwd -Sa 2>/dev/null || cat /etc/shadow 2>/dev/null || true
         if (host == null) throw new KeyNotFoundException($"Host {hostId} not found");
 
         var cleanUser = SanitizeUsername(username);
-        var cmd = $"passwd -l {cleanUser} 2>&1 || usermod -L {cleanUser} 2>&1";
-        var res = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: 15);
+        var cmd = _cmdRegistry.GetCommand("Users.LockUser", new { username = cleanUser });
+        var timeout = _cmdRegistry.GetTimeout("Users.LockUser", 15);
+        var res = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
 
         var success = res.ExitCode == 0;
         var output = (res.Output + "\n" + res.Error).Trim();
@@ -240,8 +241,9 @@ passwd -Sa 2>/dev/null || cat /etc/shadow 2>/dev/null || true
         if (host == null) throw new KeyNotFoundException($"Host {hostId} not found");
 
         var cleanUser = SanitizeUsername(username);
-        var cmd = $"passwd -u {cleanUser} 2>&1 || usermod -U {cleanUser} 2>&1";
-        var res = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: 15);
+        var cmd = _cmdRegistry.GetCommand("Users.UnlockUser", new { username = cleanUser });
+        var timeout = _cmdRegistry.GetTimeout("Users.UnlockUser", 15);
+        var res = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
 
         var success = res.ExitCode == 0;
         var output = (res.Output + "\n" + res.Error).Trim();
@@ -264,7 +266,7 @@ passwd -Sa 2>/dev/null || cat /etc/shadow 2>/dev/null || true
             return new LinuxUserActionResult(false, "Root already possesses all administrative privileges");
         }
 
-        var checkCmd = $"id -Gn {cleanUser} 2>/dev/null";
+        var checkCmd = _cmdRegistry.GetCommand("Users.GetGroups", new { username = cleanUser });
         var checkRes = await _sshManager.RunCommandAsync(host, checkCmd, timeoutSeconds: 10);
         var groups = (checkRes.Output ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
@@ -272,14 +274,16 @@ passwd -Sa 2>/dev/null || cat /etc/shadow 2>/dev/null || true
 
         if (hasSudo)
         {
-            var remCmd = $"gpasswd -d {cleanUser} sudo 2>/dev/null; gpasswd -d {cleanUser} wheel 2>/dev/null; deluser {cleanUser} sudo 2>/dev/null || true";
-            var remRes = await _sshManager.RunCommandAsync(host, remCmd, timeoutSeconds: 15);
+            var remCmd = _cmdRegistry.GetCommand("Users.RemoveSudo", new { username = cleanUser });
+            var remTimeout = _cmdRegistry.GetTimeout("Users.RemoveSudo", 15);
+            var remRes = await _sshManager.RunCommandAsync(host, remCmd, timeoutSeconds: remTimeout);
             return new LinuxUserActionResult(true, $"Removed sudo privileges from user '{cleanUser}'", remRes.Output);
         }
         else
         {
-            var addCmd = $"usermod -aG sudo {cleanUser} 2>/dev/null || usermod -aG wheel {cleanUser} 2>/dev/null";
-            var addRes = await _sshManager.RunCommandAsync(host, addCmd, timeoutSeconds: 15);
+            var addCmd = _cmdRegistry.GetCommand("Users.AddSudo", new { username = cleanUser });
+            var addTimeout = _cmdRegistry.GetTimeout("Users.AddSudo", 15);
+            var addRes = await _sshManager.RunCommandAsync(host, addCmd, timeoutSeconds: addTimeout);
             return new LinuxUserActionResult(addRes.ExitCode == 0, $"Granted sudo privileges to user '{cleanUser}'", addRes.Output);
         }
     }
@@ -296,8 +300,9 @@ passwd -Sa 2>/dev/null || cat /etc/shadow 2>/dev/null || true
         }
 
         var homeFlag = removeHome ? "-r" : "";
-        var cmd = $"userdel {homeFlag} {cleanUser} 2>&1";
-        var res = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: 20);
+        var cmd = _cmdRegistry.GetCommand("Users.DeleteUser", new { homeFlag, username = cleanUser });
+        var timeout = _cmdRegistry.GetTimeout("Users.DeleteUser", 20);
+        var res = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
 
         var success = res.ExitCode == 0;
         var output = (res.Output + "\n" + res.Error).Trim();

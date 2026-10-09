@@ -134,6 +134,16 @@ public class DatabaseContext
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS command_templates (
+                key TEXT PRIMARY KEY,
+                category TEXT NOT NULL,
+                command TEXT NOT NULL,
+                description TEXT,
+                timeout_seconds INTEGER NOT NULL DEFAULT 30,
+                is_custom INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT NOT NULL
+            );
         ";
         cmd.ExecuteNonQuery();
 
@@ -146,6 +156,69 @@ public class DatabaseContext
         catch
         {
             // Column already exists or table newly created
+        }
+
+        SeedCommandTemplates(conn);
+    }
+
+    private void SeedCommandTemplates(SqliteConnection conn)
+    {
+        string? jsonPath = null;
+        var candidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "commands.json"),
+            Path.Combine(Directory.GetCurrentDirectory(), "commands.json"),
+            Path.Combine(AppContext.BaseDirectory, "../../../commands.json"),
+            Path.Combine(Directory.GetCurrentDirectory(), "src/ServerDeck.Backend/commands.json")
+        };
+
+        foreach (var c in candidates)
+        {
+            if (File.Exists(c))
+            {
+                jsonPath = Path.GetFullPath(c);
+                break;
+            }
+        }
+
+        if (jsonPath == null) return;
+
+        try
+        {
+            var json = File.ReadAllText(jsonPath);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            var now = DateTime.UtcNow.ToString("o");
+
+            using var tx = conn.BeginTransaction();
+            foreach (var el in doc.RootElement.EnumerateArray())
+            {
+                var key = el.GetProperty("key").GetString();
+                if (string.IsNullOrEmpty(key)) continue;
+
+                var category = el.TryGetProperty("category", out var c) ? c.GetString() ?? "General" : "General";
+                var command = el.TryGetProperty("command", out var cmdEl) ? cmdEl.GetString() ?? "" : "";
+                var desc = el.TryGetProperty("description", out var d) ? d.GetString() : null;
+                var timeout = el.TryGetProperty("timeoutSeconds", out var t) ? t.GetInt32() : 30;
+
+                using var insertCmd = conn.CreateCommand();
+                insertCmd.Transaction = tx;
+                insertCmd.CommandText = @"
+                    INSERT OR IGNORE INTO command_templates (key, category, command, description, timeout_seconds, is_custom, updated_at)
+                    VALUES ($key, $cat, $cmd, $desc, $timeout, 0, $now);
+                ";
+                insertCmd.Parameters.AddWithValue("$key", key);
+                insertCmd.Parameters.AddWithValue("$cat", category);
+                insertCmd.Parameters.AddWithValue("$cmd", command);
+                insertCmd.Parameters.AddWithValue("$desc", (object?)desc ?? DBNull.Value);
+                insertCmd.Parameters.AddWithValue("$timeout", timeout);
+                insertCmd.Parameters.AddWithValue("$now", now);
+                insertCmd.ExecuteNonQuery();
+            }
+            tx.Commit();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DatabaseContext] Warning: Failed to seed command templates: {ex.Message}");
         }
     }
 }

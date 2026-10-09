@@ -15,17 +15,24 @@ public interface IFirewallService
 public class FirewallService : IFirewallService
 {
     private readonly ISshConnectionManager _sshManager;
+    private readonly ICommandRegistry _cmdRegistry;
     private readonly ILogger<FirewallService> _logger;
 
-    public FirewallService(ISshConnectionManager sshManager, ILogger<FirewallService> logger)
+    public FirewallService(
+        ISshConnectionManager sshManager,
+        ICommandRegistry cmdRegistry,
+        ILogger<FirewallService> logger)
     {
         _sshManager = sshManager;
+        _cmdRegistry = cmdRegistry;
         _logger = logger;
     }
 
     public async Task<FirewallStatusDto> GetRulesAsync(HostEntity host)
     {
-        var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, "ufw status numbered 2>&1", timeoutSeconds: 15);
+        var ufwCmd = _cmdRegistry.GetCommand("Firewall.UfwStatus");
+        var ufwTimeout = _cmdRegistry.GetTimeout("Firewall.UfwStatus", 15);
+        var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, ufwCmd, timeoutSeconds: ufwTimeout);
         var rules = new List<FirewallRuleDto>();
         bool isActive = false;
         string statusText = "inactive";
@@ -46,7 +53,9 @@ public class FirewallService : IFirewallService
         {
             // Fallback: check iptables
             backend = "iptables";
-            var (iptExit, iptOut, _) = await _sshManager.RunCommandAsync(host, "iptables -L INPUT -n --line-numbers 2>&1", timeoutSeconds: 10);
+            var iptCmd = _cmdRegistry.GetCommand("Firewall.IptablesStatus");
+            var iptTimeout = _cmdRegistry.GetTimeout("Firewall.IptablesStatus", 10);
+            var (iptExit, iptOut, _) = await _sshManager.RunCommandAsync(host, iptCmd, timeoutSeconds: iptTimeout);
             if (iptExit == 0 && !string.IsNullOrEmpty(iptOut))
             {
                 isActive = true;
@@ -77,24 +86,26 @@ public class FirewallService : IFirewallService
             proto = "tcp";
         }
 
-        string cmd;
+        string ruleSpec;
         var cleanPort = request.Port.Trim().Replace(";", "").Replace("&", "").Replace("|", "");
         var cleanFrom = request.From?.Trim().Replace(";", "").Replace("&", "").Replace("|", "");
 
         if (!string.IsNullOrWhiteSpace(cleanFrom) && !cleanFrom.Equals("Anywhere", StringComparison.OrdinalIgnoreCase))
         {
-            cmd = proto == "any"
-                ? $"ufw {action} from {cleanFrom} to any port {cleanPort}"
-                : $"ufw {action} from {cleanFrom} to any port {cleanPort} proto {proto}";
+            ruleSpec = proto == "any"
+                ? $"{action} from {cleanFrom} to any port {cleanPort}"
+                : $"{action} from {cleanFrom} to any port {cleanPort} proto {proto}";
         }
         else
         {
-            cmd = proto == "any"
-                ? $"ufw {action} {cleanPort}"
-                : $"ufw {action} {cleanPort}/{proto}";
+            ruleSpec = proto == "any"
+                ? $"{action} {cleanPort}"
+                : $"{action} {cleanPort}/{proto}";
         }
 
-        var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: 15);
+        var cmd = _cmdRegistry.GetCommand("Firewall.UfwAddRule", new { ruleCommand = ruleSpec });
+        var timeout = _cmdRegistry.GetTimeout("Firewall.UfwAddRule", 15);
+        var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
         if (exitCode != 0)
         {
             return new FirewallOperationResult(false, $"Failed to add rule: {error}", output);
@@ -110,8 +121,9 @@ public class FirewallService : IFirewallService
             return new FirewallOperationResult(false, "Invalid rule number");
         }
 
-        var cmd = $"echo \"y\" | ufw delete {ruleNumber}";
-        var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: 15);
+        var cmd = _cmdRegistry.GetCommand("Firewall.UfwDeleteRule", new { ruleNumber });
+        var timeout = _cmdRegistry.GetTimeout("Firewall.UfwDeleteRule", 15);
+        var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
         if (exitCode != 0)
         {
             return new FirewallOperationResult(false, $"Failed to delete rule: {error}", output);
@@ -122,17 +134,9 @@ public class FirewallService : IFirewallService
 
     public async Task<Fail2banStatusDto> GetFail2banStatusAsync(HostEntity host)
     {
-        const string checkScript = @"
-if command -v fail2ban-client >/dev/null 2>&1; then
-    echo '===STATUS==='
-    fail2ban-client status 2>&1
-    echo '===SSHD==='
-    fail2ban-client status sshd 2>&1
-else
-    echo 'NOT_INSTALLED'
-fi
-";
-        var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, checkScript, timeoutSeconds: 15);
+        var checkScript = _cmdRegistry.GetCommand("Firewall.Fail2banStatus");
+        var timeout = _cmdRegistry.GetTimeout("Firewall.Fail2banStatus", 15);
+        var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, checkScript, timeoutSeconds: timeout);
         if (output.Contains("NOT_INSTALLED"))
         {
             return new Fail2banStatusDto(false, false, new List<string>(), new List<string>(), 0, 0);
@@ -202,14 +206,16 @@ fi
         var cleanIp = ip.Trim().Replace(";", "").Replace("&", "").Replace("|", "");
         var targetJail = string.IsNullOrWhiteSpace(jail) ? "sshd" : jail.Trim().Replace(";", "").Replace("&", "");
 
-        var cmd = $"fail2ban-client set {targetJail} unbanip {cleanIp}";
-        var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: 15);
+        var cmd = _cmdRegistry.GetCommand("Firewall.Fail2banUnban", new { jail = targetJail, ip = cleanIp });
+        var timeout = _cmdRegistry.GetTimeout("Firewall.Fail2banUnban", 15);
+        var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
 
         if (exitCode != 0)
         {
             // Also try unban all jails as fallback
-            var fallbackCmd = $"fail2ban-client unban {cleanIp} 2>&1";
-            var (fbExit, fbOut, fbErr) = await _sshManager.RunCommandAsync(host, fallbackCmd, timeoutSeconds: 10);
+            var fallbackCmd = _cmdRegistry.GetCommand("Firewall.Fail2banUnbanFallback", new { ip = cleanIp });
+            var fbTimeout = _cmdRegistry.GetTimeout("Firewall.Fail2banUnbanFallback", 10);
+            var (fbExit, fbOut, fbErr) = await _sshManager.RunCommandAsync(host, fallbackCmd, timeoutSeconds: fbTimeout);
             if (fbExit != 0)
             {
                 return new FirewallOperationResult(false, $"Failed to unban {cleanIp}: {error} {fbErr}", output);

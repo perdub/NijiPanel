@@ -1,0 +1,394 @@
+[
+  {
+    "key": "System.StatsProbe",
+    "category": "System",
+    "command": "echo '---OS---'\nif [ -f /etc/os-release ]; then\n  . /etc/os-release\n  echo \"$PRETTY_NAME\"\nelse\n  uname -srm\nfi\necho '---UPTIME---'\nuptime -p 2>/dev/null || uptime | awk '{print $3,$4}'\necho '---LOAD---'\ncat /proc/loadavg 2>/dev/null | awk '{print $1, $2, $3}' || echo ''\necho '---MEM---'\nfree -m 2>/dev/null | awk 'NR==2{printf \"%d|%d|%.1f / %.1f GB (%.0f%%)\", $3, $2, $3/1024, $2/1024, ($2>0 ? $3*100/$2 : 0)}'\necho ''\necho '---DISK---'\ndf -m / 2>/dev/null | awk 'NR==2{printf \"%d|%d|%.1f / %.1f GB (%s)\", $3, $2, $3/1024, $2/1024, $5}'\necho ''\necho '---NET---'\nawk 'NR>2 && $1 !~ /lo:/ {rx+=$2; tx+=$10} END {printf \"RX: %.2f GB | TX: %.2f GB\", rx/1024/1024/1024, tx/1024/1024/1024}' /proc/net/dev 2>/dev/null || echo ''\necho '---CPU---'\ntop -bn1 2>/dev/null | grep \"Cpu(s)\" | sed \"s/.*, *\\([0-9.]*\\)%* id.*/\\1/\" | awk '{printf \"%d\", 100 - $1}' || echo '0'\necho '---DOCKER---'\ndocker --version 2>/dev/null || echo 'Not installed'",
+    "description": "Probe CPU, RAM, Disk, Net I/O, uptime and Docker engine presence",
+    "timeoutSeconds": 10
+  },
+  {
+    "key": "System.HardwareBenchmark",
+    "category": "System",
+    "command": "export LC_ALL=C\nTMP_BENCH=\"/tmp/nijibench_test\"\nrm -f /tmp/nijibench_* 2>/dev/null\ntrap 'rm -f /tmp/nijibench_* 2>/dev/null' EXIT INT TERM\n\necho '===CPU==='\nif command -v openssl >/dev/null 2>&1; then\n    openssl speed -seconds 2 sha256 2>&1 | tail -n 2\nelse\n    START_NS=$(date +%s%N 2>/dev/null || date +%s000000000)\n    dd if=/dev/zero bs=1M count=64 2>/dev/null | sha256sum\n    END_NS=$(date +%s%N 2>/dev/null || date +%s000000000)\n    echo \"FALLBACK_TIME_NS: $((END_NS - START_NS))\"\nfi\n\necho '===DISK==='\n(dd if=/dev/zero of=\"$TMP_BENCH\" bs=64M count=4 oflag=direct 2>&1 || dd if=/dev/zero of=\"$TMP_BENCH\" bs=64M count=4 conv=fdatasync 2>&1)\nrm -f \"$TMP_BENCH\" /tmp/nijibench_* 2>/dev/null\n\necho '===PING==='\n(ping -c 3 -W 2 1.1.1.1 2>&1 || ping -c 3 -W 2 8.8.8.8 2>&1 || echo 'rtt min/avg/max = 99.9/99.9/99.9 ms')\n\necho '===CLEANUP==='\nrm -f /tmp/nijibench_* 2>/dev/null\necho 'OK'",
+    "description": "Non-destructive hardware benchmark measuring disk write, CPU SHA256 throughput, and gateway latency with automatic cleanup",
+    "timeoutSeconds": 35
+  },
+  {
+    "key": "System.LiveSockets",
+    "category": "System",
+    "command": "ss -tulpn 2>/dev/null",
+    "description": "Inspect open listening TCP and UDP sockets with PID and process names",
+    "timeoutSeconds": 15
+  },
+  {
+    "key": "System.HardeningSshPort",
+    "category": "System",
+    "command": "NEW_PORT={newPort}\n\nif ss -tulpn 2>/dev/null | grep -q \":$NEW_PORT\\b\"; then\n  echo \"PORT_IN_USE\"\n  exit 1\nfi\n\ncp /etc/ssh/sshd_config /etc/ssh/sshd_config.serverdeck.bak 2>/dev/null || true\n\nif grep -q -E \"^[#]*[[:space:]]*Port[[:space:]]+\" /etc/ssh/sshd_config; then\n  sed -i -E \"s/^[#]*[[:space:]]*Port[[:space:]]+[0-9]+/Port $NEW_PORT/\" /etc/ssh/sshd_config\nelse\n  echo \"Port $NEW_PORT\" >> /etc/ssh/sshd_config\nfi\n\nif [ -d /etc/ssh/sshd_config.d ]; then\n  echo \"Port $NEW_PORT\" > /etc/ssh/sshd_config.d/99-serverdeck-port.conf\nfi\n\nsshd -t 2>&1\nTEST_EXIT=$?\n\nif [ $TEST_EXIT -ne 0 ]; then\n  echo \"SSHD_TEST_FAILED\"\n  if [ -f /etc/ssh/sshd_config.serverdeck.bak ]; then\n    cp /etc/ssh/sshd_config.serverdeck.bak /etc/ssh/sshd_config\n  fi\n  if [ -f /etc/ssh/sshd_config.d/99-serverdeck-port.conf ]; then\n    rm -f /etc/ssh/sshd_config.d/99-serverdeck-port.conf\n  fi\n  exit 1\nfi\n\nif command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q \"Status: active\"; then\n  ufw allow $NEW_PORT/tcp 2>/dev/null || true\nfi\n\nif command -v iptables >/dev/null 2>&1; then\n  iptables -C INPUT -p tcp --dport $NEW_PORT -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport $NEW_PORT -j ACCEPT 2>/dev/null || true\nfi\n\nsystemctl reload ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || systemctl reload sshd 2>/dev/null || systemctl restart ssh 2>/dev/null || service ssh reload 2>/dev/null || service ssh restart 2>/dev/null || true\n\necho \"SSHD_HARDENING_SUCCESS\"",
+    "description": "Harden SSH by testing and migrating daemon port to high ephemeral port",
+    "timeoutSeconds": 30
+  },
+  {
+    "key": "Network.Probe",
+    "category": "Network",
+    "command": "echo '---INTERFACES_JSON---'\nip -j addr 2>/dev/null || ip addr show || true\necho '---ROUTE_JSON---'\nip -j route 2>/dev/null || ip route show || true\necho '---RESOLV_CONF---'\ncat /etc/resolv.conf 2>/dev/null || true\necho '---GEO_JSON---'\ncurl -s --max-time 3 http://ip-api.com/json 2>/dev/null || true",
+    "description": "Inspect network interfaces, IP addresses, default gateway, DNS servers and public GeoIP",
+    "timeoutSeconds": 15
+  },
+  {
+    "key": "Docker.ListContainers",
+    "category": "Docker",
+    "command": "docker ps -a --no-trunc --format '{{json .}}'",
+    "description": "List all Docker containers formatted as newline-delimited JSON objects",
+    "timeoutSeconds": 15
+  },
+  {
+    "key": "Docker.InspectStateBatch",
+    "category": "Docker",
+    "command": "docker inspect --format '{{\"Id\":\"{{.Id}}\",\"ExitCode\":{{.State.ExitCode}},\"OOMKilled\":{{.State.OOMKilled}},\"Dead\":{{.State.Dead}},\"Restarting\":{{.State.Restarting}},\"Error\":{{json .State.Error}},\"FinishedAt\":\"{{.State.FinishedAt}}\"}}' {ids}",
+    "description": "Inspect crash, OOM-killed, and exit states in batch for candidate containers",
+    "timeoutSeconds": 10
+  },
+  {
+    "key": "Docker.InspectCrashDump",
+    "category": "Docker",
+    "command": "docker inspect --format '{{\"Id\":\"{{.Id}}\",\"Name\":\"{{.Name}}\",\"Status\":\"{{.State.Status}}\",\"ExitCode\":{{.State.ExitCode}},\"OOMKilled\":{{.State.OOMKilled}},\"FinishedAt\":\"{{.State.FinishedAt}}\",\"Error\":{{json .State.Error}}}}' {containerId}",
+    "description": "Inspect crash dump details and exit code for a single container",
+    "timeoutSeconds": 10
+  },
+  {
+    "key": "Docker.InspectContainer",
+    "category": "Docker",
+    "command": "docker inspect {containerId}",
+    "description": "Inspect detailed metadata and health status for a specific Docker container",
+    "timeoutSeconds": 15
+  },
+  {
+    "key": "Docker.ContainerLogs",
+    "category": "Docker",
+    "command": "docker logs --tail {tail} --timestamps {containerId} 2>&1",
+    "description": "Fetch trailing stdout and stderr log lines with timestamps for a Docker container",
+    "timeoutSeconds": 20
+  },
+  {
+    "key": "Docker.ContainerAction",
+    "category": "Docker",
+    "command": "docker {action} {containerId}",
+    "description": "Execute lifecycle action (start, stop, restart, kill, rm) on container",
+    "timeoutSeconds": 30
+  },
+  {
+    "key": "Docker.FindCompose",
+    "category": "Docker",
+    "command": "find {searchRoots} -maxdepth 4 \\( -name 'docker-compose.yml' -o -name 'compose.yaml' -o -name 'docker-compose.yaml' \\) 2>/dev/null",
+    "description": "Find Docker Compose files across standard filesystem directories",
+    "timeoutSeconds": 15
+  },
+  {
+    "key": "Docker.ComposePsServices",
+    "category": "Docker",
+    "command": "docker compose -f '{filePath}' ps --format '{{.Service}}' 2>/dev/null || docker-compose -f '{filePath}' ps --services 2>/dev/null",
+    "description": "List configured services for a Compose project",
+    "timeoutSeconds": 10
+  },
+  {
+    "key": "Docker.ComposeAction",
+    "category": "Docker",
+    "command": "cd '{dir}' && (docker compose -f '{composeFile}' {action} 2>&1 || docker-compose -f '{composeFile}' {action} 2>&1)",
+    "description": "Execute Docker Compose stack action (up -d, down, restart, pull, stop, start)",
+    "timeoutSeconds": 120
+  },
+  {
+    "key": "Docker.ComposeLogs",
+    "category": "Docker",
+    "command": "cd '{dir}' && (docker compose -f '{composeFile}' logs --tail {tail} 2>&1 || docker-compose -f '{composeFile}' logs --tail {tail} 2>&1)",
+    "description": "Fetch trailing logs for a Docker Compose stack",
+    "timeoutSeconds": 20
+  },
+  {
+    "key": "Docker.CatCompose",
+    "category": "Docker",
+    "command": "cat '{filePath}' 2>&1",
+    "description": "Read raw docker-compose.yml contents",
+    "timeoutSeconds": 10
+  },
+  {
+    "key": "Docker.ComposeConfigJson",
+    "category": "Docker",
+    "command": "cd '{dir}' && (docker compose -f '{filePath}' config --format json 2>/dev/null || docker compose config --format json 2>/dev/null)",
+    "description": "Export resolved Docker Compose stack definition in JSON format",
+    "timeoutSeconds": 15
+  },
+  {
+    "key": "Docker.ComposeValidateFile",
+    "category": "Docker",
+    "command": "cd '{dir}' && (docker compose -f '{filePath}' config --dry-run 2>&1 || docker compose -f '{filePath}' config 2>&1 || docker-compose -f '{filePath}' config -q 2>&1)",
+    "description": "Validate existing Compose file syntax and configuration",
+    "timeoutSeconds": 30
+  },
+  {
+    "key": "Docker.ComposeValidateYaml",
+    "category": "Docker",
+    "command": "echo '{b64}' | base64 -d > '{tempPath}' && (docker compose -f '{tempPath}' config --dry-run 2>&1 || docker compose -f '{tempPath}' config 2>&1) ; rm -f '{tempPath}'",
+    "description": "Validate in-memory Compose YAML configuration via temporary file",
+    "timeoutSeconds": 30
+  },
+  {
+    "key": "Docker.PrunePreview",
+    "category": "Docker",
+    "command": "docker system df --format json 2>/dev/null || docker system df --format '{{json .}}' 2>/dev/null",
+    "description": "Calculate reclaimable disk space across images, containers, and volumes",
+    "timeoutSeconds": 15
+  },
+  {
+    "key": "Docker.PruneExecute",
+    "category": "Docker",
+    "command": "docker system prune -f {flags}",
+    "description": "Execute confirmed prune of dangling Docker containers, images, volumes and cache",
+    "timeoutSeconds": 120
+  },
+  {
+    "key": "Systemd.ListUnitsJson",
+    "category": "Systemd",
+    "command": "systemctl list-units --type=service --all --no-pager --output=json 2>/dev/null",
+    "description": "List all systemd services with structured JSON output",
+    "timeoutSeconds": 20
+  },
+  {
+    "key": "Systemd.ListUnitsPlain",
+    "category": "Systemd",
+    "command": "systemctl list-units --type=service --all --no-pager --plain --no-legend",
+    "description": "List all systemd services in plain text fallback mode",
+    "timeoutSeconds": 20
+  },
+  {
+    "key": "Systemd.ServiceAction",
+    "category": "Systemd",
+    "command": "systemctl {action} {unitName} 2>&1",
+    "description": "Execute systemd unit action (start, stop, restart, enable, disable, reload, mask, unmask)",
+    "timeoutSeconds": 30
+  },
+  {
+    "key": "Systemd.ServiceLogs",
+    "category": "Systemd",
+    "command": "journalctl -u {unitName} -n {lines} --no-pager {priorityFlag}",
+    "description": "Retrieve recent journalctl log entries for a systemd service unit",
+    "timeoutSeconds": 25
+  },
+  {
+    "key": "Users.ListUsers",
+    "category": "Users",
+    "command": "cat /etc/passwd\necho '===GROUP_DELIMITER==='\ncat /etc/group\necho '===SHADOW_DELIMITER==='\npasswd -Sa 2>/dev/null || cat /etc/shadow 2>/dev/null || true",
+    "description": "Inspect Linux users, primary and supplementary groups, and password lock states",
+    "timeoutSeconds": 20
+  },
+  {
+    "key": "Users.CreateUser",
+    "category": "Users",
+    "command": "useradd {homeFlag} -s {shell} {username}",
+    "description": "Create a new Linux user with shell and home directory options",
+    "timeoutSeconds": 30
+  },
+  {
+    "key": "Users.SetPassword",
+    "category": "Users",
+    "command": "echo '{username}:{password}' | chpasswd",
+    "description": "Set password for a Linux user account via chpasswd",
+    "timeoutSeconds": 15
+  },
+  {
+    "key": "Users.LockUser",
+    "category": "Users",
+    "command": "passwd -l {username} 2>&1 || usermod -L {username} 2>&1",
+    "description": "Lock password access for a Linux user account",
+    "timeoutSeconds": 15
+  },
+  {
+    "key": "Users.UnlockUser",
+    "category": "Users",
+    "command": "passwd -u {username} 2>&1 || usermod -U {username} 2>&1",
+    "description": "Unlock password access for a Linux user account",
+    "timeoutSeconds": 15
+  },
+  {
+    "key": "Users.DeleteUser",
+    "category": "Users",
+    "command": "userdel {homeFlag} {username} 2>&1",
+    "description": "Delete a Linux user account and optionally purge home directory",
+    "timeoutSeconds": 20
+  },
+  {
+    "key": "Users.AddSudo",
+    "category": "Users",
+    "command": "usermod -aG sudo {username} 2>/dev/null || usermod -aG wheel {username} 2>/dev/null",
+    "description": "Grant administrative sudo privileges to a Linux user account",
+    "timeoutSeconds": 15
+  },
+  {
+    "key": "Users.RemoveSudo",
+    "category": "Users",
+    "command": "gpasswd -d {username} sudo 2>/dev/null; gpasswd -d {username} wheel 2>/dev/null; deluser {username} sudo 2>/dev/null || true",
+    "description": "Revoke administrative sudo privileges from a Linux user account",
+    "timeoutSeconds": 15
+  },
+  {
+    "key": "Users.GetGroups",
+    "category": "Users",
+    "command": "id -Gn {username} 2>/dev/null",
+    "description": "Inspect effective groups of a user",
+    "timeoutSeconds": 10
+  },
+  {
+    "key": "Packages.CheckUpdates",
+    "category": "Packages",
+    "command": "if command -v apt-get >/dev/null 2>&1; then\n  echo '---PM:apt---'\n  apt-get update -qq 2>&1 || true\n  apt-get -s upgrade 2>&1\nelif command -v dnf >/dev/null 2>&1; then\n  echo '---PM:dnf---'\n  dnf check-update 2>&1 || true\nelif command -v yum >/dev/null 2>&1; then\n  echo '---PM:yum---'\n  yum check-update 2>&1 || true\nelif command -v pacman >/dev/null 2>&1; then\n  echo '---PM:pacman---'\n  pacman -Sy >/dev/null 2>&1 || true\n  pacman -Qu 2>&1\nelif command -v apk >/dev/null 2>&1; then\n  echo '---PM:apk---'\n  apk update >/dev/null 2>&1 || true\n  apk version -v -l '<' 2>&1\nelse\n  echo '---PM:unknown---'\nfi",
+    "description": "Check pending updates across apt, dnf, yum, pacman, or apk",
+    "timeoutSeconds": 60
+  },
+  {
+    "key": "Packages.UpgradeAll",
+    "category": "Packages",
+    "command": "if command -v apt-get >/dev/null 2>&1; then\n  DEBIAN_FRONTEND=noninteractive apt-get upgrade -y\nelif command -v dnf >/dev/null 2>&1; then\n  dnf upgrade -y\nelif command -v yum >/dev/null 2>&1; then\n  yum upgrade -y\nelif command -v pacman >/dev/null 2>&1; then\n  pacman -Syu --noconfirm\nelif command -v apk >/dev/null 2>&1; then\n  apk upgrade\nelse\n  echo 'No supported package manager found (apt, dnf, yum, pacman, apk)' >&2\n  exit 1\nfi",
+    "description": "Perform unattended OS package upgrade across apt, dnf, yum, pacman, or apk",
+    "timeoutSeconds": 360
+  },
+  {
+    "key": "Packages.CheckApt",
+    "category": "Packages",
+    "command": "DEBIAN_FRONTEND=noninteractive apt-get update -qq >/dev/null 2>&1; apt-get -s upgrade 2>&1",
+    "description": "Simulate APT package upgrade to check pending regular and security updates",
+    "timeoutSeconds": 60
+  },
+  {
+    "key": "Packages.CheckDnf",
+    "category": "Packages",
+    "command": "dnf check-update --quiet 2>&1 || true",
+    "description": "Check pending DNF/RPM package updates on RedHat and Fedora systems",
+    "timeoutSeconds": 60
+  },
+  {
+    "key": "Packages.UpgradeApt",
+    "category": "Packages",
+    "command": "DEBIAN_FRONTEND=noninteractive apt-get upgrade -y 2>&1",
+    "description": "Perform unattended OS package upgrade via APT",
+    "timeoutSeconds": 360
+  },
+  {
+    "key": "Packages.UpgradeDnf",
+    "category": "Packages",
+    "command": "dnf upgrade -y 2>&1",
+    "description": "Perform unattended OS package upgrade via DNF",
+    "timeoutSeconds": 360
+  },
+  {
+    "key": "Firewall.UfwStatus",
+    "category": "Firewall",
+    "command": "ufw status numbered 2>&1",
+    "description": "Inspect active UFW firewall rules numbered sequentially",
+    "timeoutSeconds": 15
+  },
+  {
+    "key": "Firewall.IptablesStatus",
+    "category": "Firewall",
+    "command": "iptables -L INPUT -n --line-numbers 2>&1",
+    "description": "Inspect iptables INPUT chain rules numbered sequentially",
+    "timeoutSeconds": 10
+  },
+  {
+    "key": "Firewall.UfwAddRule",
+    "category": "Firewall",
+    "command": "{ruleCommand}",
+    "description": "Append a new firewall port rule to UFW table",
+    "timeoutSeconds": 15
+  },
+  {
+    "key": "Firewall.UfwDeleteRule",
+    "category": "Firewall",
+    "command": "echo \"y\" | ufw delete {ruleNumber}",
+    "description": "Delete a firewall rule by its numeric index",
+    "timeoutSeconds": 15
+  },
+  {
+    "key": "Firewall.Fail2banStatus",
+    "category": "Firewall",
+    "command": "if command -v fail2ban-client >/dev/null 2>&1; then\n    echo '===STATUS==='\n    fail2ban-client status 2>&1\n    echo '===SSHD==='\n    fail2ban-client status sshd 2>&1\nelse\n    echo 'NOT_INSTALLED'\nfi",
+    "description": "Inspect Fail2ban status, active jail count, and list of banned IP addresses",
+    "timeoutSeconds": 15
+  },
+  {
+    "key": "Firewall.Fail2banUnban",
+    "category": "Firewall",
+    "command": "fail2ban-client set {jail} unbanip {ip} 2>&1",
+    "description": "Unban a blocked IP address from Fail2ban jail",
+    "timeoutSeconds": 15
+  },
+  {
+    "key": "Firewall.Fail2banUnbanFallback",
+    "category": "Firewall",
+    "command": "fail2ban-client unban {ip} 2>&1",
+    "description": "Unban a blocked IP address from all Fail2ban jails as fallback",
+    "timeoutSeconds": 10
+  },
+  {
+    "key": "Cron.ListJobs",
+    "category": "Cron",
+    "command": "crontab -l 2>&1",
+    "description": "Retrieve current user crontab task definitions",
+    "timeoutSeconds": 10
+  },
+  {
+    "key": "Cron.InstallCrontab",
+    "category": "Cron",
+    "command": "tmpfile=$(mktemp) && echo \"{base64}\" | base64 -d > \"$tmpfile\" && crontab \"$tmpfile\" && rm -f \"$tmpfile\"",
+    "description": "Safely install crontab from base64 encoded text via temporary file",
+    "timeoutSeconds": 15
+  },
+  {
+    "key": "Files.DiskUsage",
+    "category": "Files",
+    "command": "du -x -k -d {depth}{excludes} {path} 2>/dev/null || du -k -d {depth}{excludes} {path} 2>/dev/null",
+    "description": "Calculate recursive directory sizes with exclusion patterns",
+    "timeoutSeconds": 45
+  },
+  {
+    "key": "Files.ArchiveZip",
+    "category": "Files",
+    "command": "cd {dirPath} && zip -r {archiveName} {items}",
+    "description": "Compress files and folders into a ZIP archive on remote host",
+    "timeoutSeconds": 120
+  },
+  {
+    "key": "Files.ArchiveTar",
+    "category": "Files",
+    "command": "cd {dirPath} && tar -czf {archiveName} {items}",
+    "description": "Compress files and folders into a tar.gz archive on remote host",
+    "timeoutSeconds": 120
+  },
+  {
+    "key": "Files.ExtractZip",
+    "category": "Files",
+    "command": "mkdir -p {destPath} && unzip -o {archivePath} -d {destPath}",
+    "description": "Extract a ZIP archive into a destination directory",
+    "timeoutSeconds": 120
+  },
+  {
+    "key": "Files.ExtractTarGz",
+    "category": "Files",
+    "command": "mkdir -p {destPath} && tar -xzf {archivePath} -C {destPath}",
+    "description": "Extract a tar.gz or tgz archive into a destination directory",
+    "timeoutSeconds": 120
+  },
+  {
+    "key": "Files.ExtractTarBz2",
+    "category": "Files",
+    "command": "mkdir -p {destPath} && tar -xjf {archivePath} -C {destPath}",
+    "description": "Extract a tar.bz2 or tbz2 archive into a destination directory",
+    "timeoutSeconds": 120
+  },
+  {
+    "key": "Files.ExtractTar",
+    "category": "Files",
+    "command": "mkdir -p {destPath} && tar -xf {archivePath} -C {destPath}",
+    "description": "Extract an uncompressed tar archive into a destination directory",
+    "timeoutSeconds": 120
+  }
+]

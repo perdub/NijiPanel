@@ -26,19 +26,23 @@ public interface IDockerService
 public class DockerService : IDockerService
 {
     private readonly ISshConnectionManager _sshManager;
+    private readonly ICommandRegistry _cmdRegistry;
 
-    public DockerService(ISshConnectionManager sshManager)
+    public DockerService(ISshConnectionManager sshManager, ICommandRegistry cmdRegistry)
     {
         _sshManager = sshManager;
+        _cmdRegistry = cmdRegistry;
     }
 
     public async Task<List<ContainerDto>> GetContainersAsync(HostEntity host)
     {
         // Run docker ps -a with json format
+        var listCmd = _cmdRegistry.GetCommand("Docker.ListContainers");
+        var listTimeout = _cmdRegistry.GetTimeout("Docker.ListContainers", 15);
         var (exitCode, output, error) = await _sshManager.RunCommandAsync(
             host,
-            "docker ps -a --no-trunc --format '{{json .}}'",
-            timeoutSeconds: 15
+            listCmd,
+            timeoutSeconds: listTimeout
         );
 
         if (exitCode != 0 && string.IsNullOrWhiteSpace(output))
@@ -86,8 +90,9 @@ public class DockerService : IDockerService
             try
             {
                 var candidateIds = string.Join(" ", inspectCandidates.Select(c => SanitizeId(c.Id)).Take(30));
-                var inspectCmd = $"docker inspect --format '{{\"Id\":\"{{{{.Id}}}}\",\"ExitCode\":{{{{.State.ExitCode}}}},\"OOMKilled\":{{{{.State.OOMKilled}}}},\"Dead\":{{{{.State.Dead}}}},\"Restarting\":{{{{.State.Restarting}}}},\"Error\":{{{{json .State.Error}}}},\"FinishedAt\":\"{{{{.State.FinishedAt}}}}\"}}' {candidateIds}";
-                var (inspCode, inspOut, _) = await _sshManager.RunCommandAsync(host, inspectCmd, timeoutSeconds: 10);
+                var inspectCmd = _cmdRegistry.GetCommand("Docker.InspectStateBatch", new { ids = candidateIds });
+                var inspTimeout = _cmdRegistry.GetTimeout("Docker.InspectStateBatch", 10);
+                var (inspCode, inspOut, _) = await _sshManager.RunCommandAsync(host, inspectCmd, timeoutSeconds: inspTimeout);
 
                 if (inspCode == 0 && !string.IsNullOrWhiteSpace(inspOut))
                 {
@@ -151,8 +156,9 @@ public class DockerService : IDockerService
     public async Task<ContainerCrashDumpDto> GetCrashDumpAsync(HostEntity host, string containerId)
     {
         var safeId = SanitizeId(containerId);
-        var inspCmd = $"docker inspect --format '{{\"Id\":\"{{{{.Id}}}}\",\"Name\":\"{{{{.Name}}}}\",\"Status\":\"{{{{.State.Status}}}}\",\"ExitCode\":{{{{.State.ExitCode}}}},\"OOMKilled\":{{{{.State.OOMKilled}}}},\"FinishedAt\":\"{{{{.State.FinishedAt}}}}\",\"Error\":{{{{json .State.Error}}}}}}' {safeId}";
-        var (_, inspOut, _) = await _sshManager.RunCommandAsync(host, inspCmd, timeoutSeconds: 10);
+        var inspCmd = _cmdRegistry.GetCommand("Docker.InspectCrashDump", new { containerId = safeId });
+        var inspTimeout = _cmdRegistry.GetTimeout("Docker.InspectCrashDump", 10);
+        var (_, inspOut, _) = await _sshManager.RunCommandAsync(host, inspCmd, timeoutSeconds: inspTimeout);
 
         string name = safeId;
         string state = "unknown";
@@ -179,8 +185,9 @@ public class DockerService : IDockerService
         }
 
         // Capture last 50 lines of logs
-        var logCmd = $"docker logs --tail 50 --timestamps {safeId} 2>&1";
-        var (_, logs, _) = await _sshManager.RunCommandAsync(host, logCmd, timeoutSeconds: 15);
+        var logCmd = _cmdRegistry.GetCommand("Docker.ContainerLogs", new { containerId = safeId, tail = 50 });
+        var logTimeout = _cmdRegistry.GetTimeout("Docker.ContainerLogs", 15);
+        var (_, logs, _) = await _sshManager.RunCommandAsync(host, logCmd, timeoutSeconds: logTimeout);
 
         return new ContainerCrashDumpDto(
             safeId,
@@ -196,10 +203,13 @@ public class DockerService : IDockerService
 
     public async Task<ContainerInspectDto> InspectContainerAsync(HostEntity host, string containerId)
     {
+        var safeId = SanitizeId(containerId);
+        var inspectCmd = _cmdRegistry.GetCommand("Docker.InspectContainer", new { containerId = safeId });
+        var timeout = _cmdRegistry.GetTimeout("Docker.InspectContainer", 15);
         var (exitCode, output, error) = await _sshManager.RunCommandAsync(
             host,
-            $"docker inspect {SanitizeId(containerId)}",
-            timeoutSeconds: 15
+            inspectCmd,
+            timeoutSeconds: timeout
         );
 
         if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
@@ -299,25 +309,28 @@ public class DockerService : IDockerService
     public async Task<(bool Success, string Output, string Error)> ExecuteActionAsync(HostEntity host, string containerId, string action)
     {
         var safeId = SanitizeId(containerId);
-        string cmd = action.ToLowerInvariant() switch
+        string actionVerb = action.ToLowerInvariant() switch
         {
-            "start" => $"docker start {safeId}",
-            "stop" => $"docker stop {safeId}",
-            "restart" => $"docker restart {safeId}",
-            "kill" => $"docker kill {safeId}",
-            "rm" => $"docker rm -f {safeId}",
+            "start" => "start",
+            "stop" => "stop",
+            "restart" => "restart",
+            "kill" => "kill",
+            "rm" => "rm -f",
             _ => throw new ArgumentException($"Invalid container action '{action}'")
         };
 
-        var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: 30);
+        var cmd = _cmdRegistry.GetCommand("Docker.ContainerAction", new { action = actionVerb, containerId = safeId });
+        var timeout = _cmdRegistry.GetTimeout("Docker.ContainerAction", 30);
+        var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
         return (exitCode == 0, output, error);
     }
 
     public async Task<string> GetLogsAsync(HostEntity host, string containerId, int tail = 200)
     {
         var safeId = SanitizeId(containerId);
-        var cmd = $"docker logs --tail {tail} --timestamps {safeId} 2>&1";
-        var (_, output, _) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: 20);
+        var cmd = _cmdRegistry.GetCommand("Docker.ContainerLogs", new { containerId = safeId, tail });
+        var timeout = _cmdRegistry.GetTimeout("Docker.ContainerLogs", 20);
+        var (_, output, _) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
         return output;
     }
 
@@ -327,8 +340,9 @@ public class DockerService : IDockerService
             ? customDir.Trim()
             : "/opt /home /root /var/www /etc/docker";
 
-        var findCmd = $"find {searchRoots} -maxdepth 4 \\( -name 'docker-compose.yml' -o -name 'compose.yaml' -o -name 'docker-compose.yaml' \\) 2>/dev/null";
-        var (_, output, _) = await _sshManager.RunCommandAsync(host, findCmd, timeoutSeconds: 15);
+        var findCmd = _cmdRegistry.GetCommand("Docker.FindCompose", new { searchRoots });
+        var findTimeout = _cmdRegistry.GetTimeout("Docker.FindCompose", 15);
+        var (_, output, _) = await _sshManager.RunCommandAsync(host, findCmd, timeoutSeconds: findTimeout);
 
         var projects = new List<ComposeProjectDto>();
         using var reader = new StringReader(output);
@@ -343,8 +357,9 @@ public class DockerService : IDockerService
             if (string.IsNullOrEmpty(name)) name = "root";
 
             // Run quick ps to get service count and status
-            var psCmd = $"docker compose -f '{filePath}' ps --format '{{{{.Service}}}}' 2>/dev/null || docker-compose -f '{filePath}' ps --services 2>/dev/null";
-            var (_, servicesOutput, _) = await _sshManager.RunCommandAsync(host, psCmd, timeoutSeconds: 5);
+            var psCmd = _cmdRegistry.GetCommand("Docker.ComposePsServices", new { filePath });
+            var psTimeout = _cmdRegistry.GetTimeout("Docker.ComposePsServices", 5);
+            var (_, servicesOutput, _) = await _sshManager.RunCommandAsync(host, psCmd, timeoutSeconds: psTimeout);
 
             var services = servicesOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct().ToList();
 
@@ -374,8 +389,9 @@ public class DockerService : IDockerService
             _ => throw new ArgumentException($"Invalid compose action '{action}'")
         };
 
-        var cmd = $"cd '{dir}' && (docker compose -f '{composeFile}' {composeSubCmd} 2>&1 || docker-compose -f '{composeFile}' {composeSubCmd} 2>&1)";
-        var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: 120);
+        var cmd = _cmdRegistry.GetCommand("Docker.ComposeAction", new { dir, composeFile, action = composeSubCmd });
+        var timeout = _cmdRegistry.GetTimeout("Docker.ComposeAction", 120);
+        var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
 
         return new ComposeActionResponse(
             exitCode == 0,
@@ -388,8 +404,9 @@ public class DockerService : IDockerService
     public async Task<string> GetComposeLogsAsync(HostEntity host, string composeFile, int tail = 200)
     {
         var dir = Path.GetDirectoryName(composeFile)?.Replace('\\', '/') ?? ".";
-        var cmd = $"cd '{dir}' && (docker compose -f '{composeFile}' logs --tail {tail} 2>&1 || docker-compose -f '{composeFile}' logs --tail {tail} 2>&1)";
-        var (_, output, _) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: 20);
+        var cmd = _cmdRegistry.GetCommand("Docker.ComposeLogs", new { dir, composeFile, tail });
+        var timeout = _cmdRegistry.GetTimeout("Docker.ComposeLogs", 20);
+        var (_, output, _) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
         return output;
     }
 
@@ -400,12 +417,14 @@ public class DockerService : IDockerService
         if (string.IsNullOrEmpty(projectName)) projectName = "compose";
 
         // Read raw file content
-        var catCmd = $"cat '{filePath}' 2>&1";
-        var (_, rawYaml, _) = await _sshManager.RunCommandAsync(host, catCmd, timeoutSeconds: 10);
+        var catCmd = _cmdRegistry.GetCommand("Docker.CatCompose", new { filePath });
+        var catTimeout = _cmdRegistry.GetTimeout("Docker.CatCompose", 10);
+        var (_, rawYaml, _) = await _sshManager.RunCommandAsync(host, catCmd, timeoutSeconds: catTimeout);
 
         // Normalize and parse via docker compose config --format json
-        var configJsonCmd = $"cd '{dir}' && (docker compose -f '{filePath}' config --format json 2>/dev/null || docker compose config --format json 2>/dev/null)";
-        var (exitCode, jsonOut, _) = await _sshManager.RunCommandAsync(host, configJsonCmd, timeoutSeconds: 15);
+        var configJsonCmd = _cmdRegistry.GetCommand("Docker.ComposeConfigJson", new { dir, filePath });
+        var configTimeout = _cmdRegistry.GetTimeout("Docker.ComposeConfigJson", 15);
+        var (exitCode, jsonOut, _) = await _sshManager.RunCommandAsync(host, configJsonCmd, timeoutSeconds: configTimeout);
 
         var services = new List<ComposeServiceDetailDto>();
 
@@ -547,23 +566,26 @@ public class DockerService : IDockerService
     public async Task<ComposeValidateResponse> ValidateComposeAsync(HostEntity host, string? filePath, string? composeYaml)
     {
         string cmd;
+        int timeout = 30;
         if (!string.IsNullOrWhiteSpace(filePath))
         {
             var dir = Path.GetDirectoryName(filePath)?.Replace('\\', '/') ?? ".";
-            cmd = $"cd '{dir}' && (docker compose -f '{filePath}' config --dry-run 2>&1 || docker compose -f '{filePath}' config 2>&1 || docker-compose -f '{filePath}' config -q 2>&1)";
+            cmd = _cmdRegistry.GetCommand("Docker.ComposeValidateFile", new { dir, filePath });
+            timeout = _cmdRegistry.GetTimeout("Docker.ComposeValidateFile", 30);
         }
         else if (!string.IsNullOrWhiteSpace(composeYaml))
         {
             var tempPath = $"/tmp/nijipanel_val_{Guid.NewGuid():N}.yml";
             var b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(composeYaml));
-            cmd = $"echo '{b64}' | base64 -d > '{tempPath}' && (docker compose -f '{tempPath}' config --dry-run 2>&1 || docker compose -f '{tempPath}' config 2>&1) ; rm -f '{tempPath}'";
+            cmd = _cmdRegistry.GetCommand("Docker.ComposeValidateYaml", new { b64, tempPath });
+            timeout = _cmdRegistry.GetTimeout("Docker.ComposeValidateYaml", 30);
         }
         else
         {
             return new ComposeValidateResponse(false, "", "No filePath or composeYaml provided");
         }
 
-        var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: 30);
+        var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, cmd, timeoutSeconds: timeout);
         bool valid = exitCode == 0;
         return new ComposeValidateResponse(valid, output, valid ? null : error);
     }
@@ -674,8 +696,9 @@ public class DockerService : IDockerService
     public async Task<DockerPrunePreviewResponse> GetPrunePreviewAsync(HostEntity host)
     {
         // 1. Run docker system df --format json
-        var dfCmd = "docker system df --format json 2>/dev/null || docker system df --format '{{json .}}' 2>/dev/null";
-        var (_, dfOut, _) = await _sshManager.RunCommandAsync(host, dfCmd, timeoutSeconds: 15);
+        var dfCmd = _cmdRegistry.GetCommand("Docker.PrunePreview");
+        var dfTimeout = _cmdRegistry.GetTimeout("Docker.PrunePreview", 15);
+        var (_, dfOut, _) = await _sshManager.RunCommandAsync(host, dfCmd, timeoutSeconds: dfTimeout);
 
         var categories = new List<DockerPruneCategoryInfo>();
         long totalReclaimableBytes = 0;

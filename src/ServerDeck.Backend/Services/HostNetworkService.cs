@@ -17,17 +17,20 @@ public class HostNetworkService : IHostNetworkService
 {
     private readonly ISshConnectionManager _sshManager;
     private readonly IEncryptionService _encryptionService;
+    private readonly ICommandRegistry _cmdRegistry;
     private readonly HttpClient _httpClient;
     private readonly ILogger<HostNetworkService> _logger;
 
     public HostNetworkService(
         ISshConnectionManager sshManager,
         IEncryptionService encryptionService,
+        ICommandRegistry cmdRegistry,
         IHttpClientFactory httpClientFactory,
         ILogger<HostNetworkService> logger)
     {
         _sshManager = sshManager;
         _encryptionService = encryptionService;
+        _cmdRegistry = cmdRegistry;
         _httpClient = httpClientFactory.CreateClient();
         _httpClient.Timeout = TimeSpan.FromSeconds(5);
         _logger = logger;
@@ -57,19 +60,9 @@ public class HostNetworkService : IHostNetworkService
 
     private async Task<HostNetworkInfoDto> ExecuteAndParseNetworkAsync(HostEntity host)
     {
-        // Combined probe script
-        const string probeScript = @"
-echo '---INTERFACES_JSON---'
-ip -j addr 2>/dev/null || ip addr show || true
-echo '---ROUTE_JSON---'
-ip -j route 2>/dev/null || ip route show || true
-echo '---RESOLV_CONF---'
-cat /etc/resolv.conf 2>/dev/null || true
-echo '---GEO_JSON---'
-curl -s --max-time 3 http://ip-api.com/json 2>/dev/null || true
-";
-
-        var cmdResult = await _sshManager.RunCommandAsync(host, probeScript, 15);
+        var probeScript = _cmdRegistry.GetCommand("Network.Probe");
+        var timeout = _cmdRegistry.GetTimeout("Network.Probe", 15);
+        var cmdResult = await _sshManager.RunCommandAsync(host, probeScript, timeout);
         var rawOutput = cmdResult.Output ?? "";
 
         // Extract sections

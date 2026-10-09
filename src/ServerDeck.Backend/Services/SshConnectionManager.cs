@@ -37,6 +37,7 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
 {
     private readonly ISettingsService _settingsService;
     private readonly IEncryptionService _encryptionService;
+    private readonly ICommandRegistry _cmdRegistry;
     private readonly ConcurrentDictionary<string, SshClient> _sshClients = new();
     private readonly ConcurrentDictionary<string, SftpClient> _sftpClients = new();
     private readonly ILogger<SshConnectionManager> _logger;
@@ -44,10 +45,12 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
     public SshConnectionManager(
         ISettingsService settingsService,
         IEncryptionService encryptionService,
+        ICommandRegistry cmdRegistry,
         ILogger<SshConnectionManager> logger)
     {
         _settingsService = settingsService;
         _encryptionService = encryptionService;
+        _cmdRegistry = cmdRegistry;
         _logger = logger;
     }
 
@@ -161,33 +164,10 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
     {
         try
         {
-            // Combined fast bash query with delimiters
-            const string query = @"
-echo '---OS---'
-if [ -f /etc/os-release ]; then
-  . /etc/os-release
-  echo ""$PRETTY_NAME""
-else
-  uname -srm
-fi
-echo '---UPTIME---'
-uptime -p 2>/dev/null || uptime | awk '{print $3,$4}'
-echo '---LOAD---'
-cat /proc/loadavg 2>/dev/null | awk '{print $1, $2, $3}' || echo ''
-echo '---MEM---'
-free -m 2>/dev/null | awk 'NR==2{printf ""%d|%d|%.1f / %.1f GB (%.0f%%)"", $3, $2, $3/1024, $2/1024, ($2>0 ? $3*100/$2 : 0)}'
-echo ''
-echo '---DISK---'
-df -m / 2>/dev/null | awk 'NR==2{printf ""%d|%d|%.1f / %.1f GB (%s)"", $3, $2, $3/1024, $2/1024, $5}'
-echo ''
-echo '---NET---'
-awk 'NR>2 && $1 !~ /lo:/ {rx+=$2; tx+=$10} END {printf ""RX: %.2f GB | TX: %.2f GB"", rx/1024/1024/1024, tx/1024/1024/1024}' /proc/net/dev 2>/dev/null || echo ''
-echo '---CPU---'
-top -bn1 2>/dev/null | grep ""Cpu(s)"" | sed ""s/.*, *\([0-9.]*\)%* id.*/\1/"" | awk '{printf ""%d"", 100 - $1}' || echo '0'
-echo '---DOCKER---'
-docker --version 2>/dev/null || echo 'Not installed'
-";
-            var result = await RunCommandAsync(host, query, timeoutSeconds: 10);
+            var query = _cmdRegistry.GetCommand("System.StatsProbe");
+            var timeout = _cmdRegistry.GetTimeout("System.StatsProbe", 10);
+            var result = await RunCommandAsync(host, query, timeoutSeconds: timeout);
+
             if (result.ExitCode != 0 && string.IsNullOrEmpty(result.Output))
             {
                 return new HostSystemStats(false, null, null, null, null, null, null, null, null, null, null, null, result.Error);

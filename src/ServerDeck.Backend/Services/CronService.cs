@@ -41,12 +41,18 @@ public class CronService : ICronService
 {
     private readonly IHostService _hostService;
     private readonly ISshConnectionManager _ssh;
+    private readonly ICommandRegistry _cmdRegistry;
     private readonly ILogger<CronService> _logger;
 
-    public CronService(IHostService hostService, ISshConnectionManager ssh, ILogger<CronService> logger)
+    public CronService(
+        IHostService hostService,
+        ISshConnectionManager ssh,
+        ICommandRegistry cmdRegistry,
+        ILogger<CronService> logger)
     {
         _hostService = hostService;
         _ssh = ssh;
+        _cmdRegistry = cmdRegistry;
         _logger = logger;
     }
 
@@ -55,7 +61,9 @@ public class CronService : ICronService
         var host = await _hostService.GetHostEntityAsync(hostId)
             ?? throw new KeyNotFoundException($"Host '{hostId}' not found");
 
-        var result = await _ssh.RunCommandAsync(host, "crontab -l 2>&1", 10);
+        var cmd = _cmdRegistry.GetCommand("Cron.ListJobs");
+        var timeout = _cmdRegistry.GetTimeout("Cron.ListJobs", 10);
+        var result = await _ssh.RunCommandAsync(host, cmd, timeout);
         if (result.ExitCode != 0 && (result.Output.Contains("no crontab for", StringComparison.OrdinalIgnoreCase) || result.Error.Contains("no crontab for", StringComparison.OrdinalIgnoreCase)))
         {
             return string.Empty;
@@ -71,9 +79,10 @@ public class CronService : ICronService
 
         // Write to temporary file and install via crontab <file>
         var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(rawContent + "\n"));
-        var cmd = $"tmpfile=$(mktemp) && echo \"{base64}\" | base64 -d > \"$tmpfile\" && crontab \"$tmpfile\" && rm -f \"$tmpfile\"";
+        var cmd = _cmdRegistry.GetCommand("Cron.InstallCrontab", new { @base64 = base64 });
+        var timeout = _cmdRegistry.GetTimeout("Cron.InstallCrontab", 15);
         
-        var result = await _ssh.RunCommandAsync(host, cmd, 15);
+        var result = await _ssh.RunCommandAsync(host, cmd, timeout);
         if (result.ExitCode != 0)
         {
             throw new InvalidOperationException($"Failed to save crontab: {result.Error} {result.Output}");

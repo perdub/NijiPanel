@@ -13,50 +13,27 @@ public class BenchmarkService : IBenchmarkService
 {
     private readonly ISshConnectionManager _sshManager;
     private readonly INotificationService _notificationService;
+    private readonly ICommandRegistry _cmdRegistry;
     private readonly ILogger<BenchmarkService> _logger;
 
     public BenchmarkService(
         ISshConnectionManager sshManager,
         INotificationService notificationService,
+        ICommandRegistry cmdRegistry,
         ILogger<BenchmarkService> logger)
     {
         _sshManager = sshManager;
         _notificationService = notificationService;
+        _cmdRegistry = cmdRegistry;
         _logger = logger;
     }
 
     public async Task<BenchmarkResultDto> RunBenchmarkAsync(HostEntity host)
     {
-        const string benchScript = @"
-export LC_ALL=C
-TMP_BENCH=""/tmp/nijibench_test""
-rm -f /tmp/nijibench_* 2>/dev/null
-trap 'rm -f /tmp/nijibench_* 2>/dev/null' EXIT INT TERM
+        var benchScript = _cmdRegistry.GetCommand("System.HardwareBenchmark");
+        var timeout = _cmdRegistry.GetTimeout("System.HardwareBenchmark", 35);
 
-echo '===CPU==='
-if command -v openssl >/dev/null 2>&1; then
-    openssl speed -seconds 2 sha256 2>&1 | tail -n 2
-else
-    START_NS=$(date +%s%N 2>/dev/null || date +%s000000000)
-    dd if=/dev/zero bs=1M count=64 2>/dev/null | sha256sum
-    END_NS=$(date +%s%N 2>/dev/null || date +%s000000000)
-    echo ""FALLBACK_TIME_NS: $((END_NS - START_NS))""
-fi
-
-echo '===DISK==='
-# Direct write test 256MB with direct flag, fall back to conv=fdatasync if oflag=direct is unsupported
-(dd if=/dev/zero of=""$TMP_BENCH"" bs=64M count=4 oflag=direct 2>&1 || dd if=/dev/zero of=""$TMP_BENCH"" bs=64M count=4 conv=fdatasync 2>&1)
-rm -f ""$TMP_BENCH"" /tmp/nijibench_* 2>/dev/null
-
-echo '===PING==='
-(ping -c 3 -W 2 1.1.1.1 2>&1 || ping -c 3 -W 2 8.8.8.8 2>&1 || echo 'rtt min/avg/max = 99.9/99.9/99.9 ms')
-
-echo '===CLEANUP==='
-rm -f /tmp/nijibench_* 2>/dev/null
-echo 'OK'
-";
-
-        var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, benchScript, timeoutSeconds: 35);
+        var (exitCode, output, error) = await _sshManager.RunCommandAsync(host, benchScript, timeoutSeconds: timeout);
         if (string.IsNullOrEmpty(output) && exitCode != 0)
         {
             throw new InvalidOperationException($"Benchmark failed on host {host.Name}: {error}");

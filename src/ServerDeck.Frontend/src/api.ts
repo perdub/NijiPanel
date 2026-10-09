@@ -43,7 +43,9 @@ import {
   PackageUpgradeResult,
   LiveSocket,
   RandomizePortResult,
-  HostNetworkInfo
+  HostNetworkInfo,
+  CommandTemplate,
+  UpdateCommandTemplateRequest
 } from './types';
 
 const API_BASE = '/api';
@@ -481,6 +483,19 @@ export const api = {
   terminal: {
     closeSession: (sessionId: string) =>
       request<{ success: boolean }>(`/terminal/sessions/${sessionId}`, { method: 'DELETE' }),
+  },
+  commands: {
+    getAll: () => request<CommandTemplate[]>('/commands'),
+    getByKey: (key: string) => request<CommandTemplate>(`/commands/${encodeURIComponent(key)}`),
+    update: (key: string, data: UpdateCommandTemplateRequest) =>
+      request<CommandTemplate>(`/commands/${encodeURIComponent(key)}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    reset: () =>
+      request<{ success: boolean; message: string; count: number }>('/commands/reset', {
+        method: 'POST',
+      }),
   },
 };
 
