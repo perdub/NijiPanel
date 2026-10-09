@@ -6,7 +6,7 @@ using ServerDeck.Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Register Services
+builder.Services.AddHttpClient();
 builder.Services.AddSingleton<DatabaseContext>();
 builder.Services.AddSingleton<IEncryptionService, EncryptionService>();
 builder.Services.AddSingleton<IAuthService, AuthService>();
@@ -19,6 +19,8 @@ builder.Services.AddScoped<IHostExtrasService, HostExtrasService>();
 builder.Services.AddSingleton<ITunnelService, TunnelService>();
 builder.Services.AddSingleton<IUtilsService, UtilsService>();
 builder.Services.AddSingleton<ITerminalSessionManager, TerminalSessionManager>();
+builder.Services.AddScoped<IDirectTransferService, DirectTransferService>();
+builder.Services.AddScoped<IBackupService, BackupService>();
 
 // JWT Authentication configuration
 var jwtSecret = builder.Configuration["JWT_SECRET"];

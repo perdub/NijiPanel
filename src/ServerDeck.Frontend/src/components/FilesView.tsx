@@ -19,7 +19,10 @@ import {
   X,
   Check,
   AlertCircle,
-  Eye
+  Eye,
+  Copy,
+  ClipboardPaste,
+  Send
 } from 'lucide-react';
 import { Host, DirectoryListing, FileItem } from '../types';
 import { api } from '../api';
@@ -47,6 +50,72 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
   // New folder / file modal
   const [createModal, setCreateModal] = useState<'file' | 'folder' | null>(null);
   const [createName, setCreateName] = useState('');
+
+  // Cross-server direct clipboard
+  const [clipboard, setClipboard] = useState<{
+    sourceHostId: string;
+    sourceHostName: string;
+    sourcePath: string;
+    name: string;
+    isDirectory: boolean;
+  } | null>(() => {
+    try {
+      const saved = localStorage.getItem('serverdeck_file_clipboard');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [transferring, setTransferring] = useState(false);
+  const [transferResult, setTransferResult] = useState<{
+    title: string;
+    output: string;
+    success: boolean;
+  } | null>(null);
+
+  const handleCopyItem = (item: FileItem) => {
+    if (!selectedHost) return;
+    const clip = {
+      sourceHostId: selectedHost.id,
+      sourceHostName: selectedHost.name,
+      sourcePath: item.path,
+      name: item.name,
+      isDirectory: item.isDirectory,
+    };
+    setClipboard(clip);
+    localStorage.setItem('serverdeck_file_clipboard', JSON.stringify(clip));
+  };
+
+  const handleClearClipboard = () => {
+    setClipboard(null);
+    localStorage.removeItem('serverdeck_file_clipboard');
+  };
+
+  const handleDirectPaste = async () => {
+    if (!selectedHost || !clipboard) return;
+    setTransferring(true);
+    try {
+      const targetPath = `${currentPath === '/' ? '' : currentPath}/${clipboard.name}`;
+      const res = await api.files.directTransfer({
+        sourceHostId: clipboard.sourceHostId,
+        sourcePath: clipboard.sourcePath,
+        targetHostId: selectedHost.id,
+        targetPath,
+      });
+
+      setTransferResult({
+        title: `Прямой перенос: ${clipboard.name} (${clipboard.sourceHostName} → ${selectedHost.name})`,
+        output: res.output || res.error || (res.success ? 'Передача завершена успешно.' : 'Ошибка передачи'),
+        success: res.success,
+      });
+
+      loadDirectory(currentPath);
+    } catch (err: any) {
+      alert(`Ошибка прямого переноса: ${err.message}`);
+    } finally {
+      setTransferring(false);
+    }
+  };
 
   const loadDirectory = async (path: string) => {
     if (!selectedHost) return;
@@ -275,6 +344,36 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
         })}
       </div>
 
+      {/* Clipboard Banner for Direct Server-to-Server Transfer */}
+      {clipboard && (
+        <div className="p-3.5 rounded-2xl bg-blue-600/10 border border-blue-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
+          <div className="flex items-center gap-2.5 text-xs">
+            <ClipboardPaste className="w-4 h-4 text-blue-400 shrink-0" />
+            <div>
+              <span className="text-slate-400">В буфере ServerDeck: </span>
+              <span className="font-semibold text-white">{clipboard.name}</span>
+              <span className="text-slate-400"> (с сервера <span className="text-blue-300 font-mono font-medium">{clipboard.sourceHostName}</span>)</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+            <button
+              onClick={handleDirectPaste}
+              disabled={transferring}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium shadow-md shadow-blue-600/20 transition-all disabled:opacity-50"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>{transferring ? 'Передача rsync/scp...' : 'Вставить сюда напрямую'}</span>
+            </button>
+            <button
+              onClick={handleClearClipboard}
+              className="px-2.5 py-1.5 rounded-xl bg-deck-850 hover:bg-deck-800 text-slate-400 hover:text-white text-xs transition-colors"
+            >
+              Очистить
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Directory Contents Table */}
       <div className="rounded-2xl bg-deck-900 border border-deck-800 overflow-hidden shadow-lg">
         <div className="overflow-x-auto">
@@ -345,6 +444,13 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
                     </td>
                     <td className="py-2.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => handleCopyItem(item)}
+                          className="p-1 rounded text-slate-400 hover:text-blue-400 transition-colors"
+                          title="Скопировать для переноса на другой сервер"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
                         {!item.isDirectory && (
                           <a
                             href={api.files.getStreamUrl(selectedHost.id, item.path, true)}
@@ -525,6 +631,39 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Direct Server Transfer Result Modal */}
+      {transferResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-2xl bg-deck-900 border border-deck-700 rounded-2xl shadow-2xl p-5 relative flex flex-col max-h-[80vh]">
+            <div className="flex items-center justify-between pb-3 border-b border-deck-800 mb-3">
+              <div className="flex items-center gap-2">
+                <Send className="w-4 h-4 text-blue-400" />
+                <h3 className="font-bold text-white text-sm sm:text-base truncate">{transferResult.title}</h3>
+              </div>
+              <button
+                onClick={() => setTransferResult(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <pre className="flex-1 overflow-auto bg-black/90 p-4 rounded-xl font-mono text-xs text-emerald-400 whitespace-pre-wrap break-all leading-relaxed select-text mb-3">
+              {transferResult.output}
+            </pre>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setTransferResult(null)}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium"
+              >
+                Закрыть
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -190,4 +190,14 @@ public class FilesController : ControllerBase
             return BadRequest(new { error = ex.Message });
         }
     }
+
+    [HttpPost("direct-transfer")]
+    public async Task<ActionResult<DirectTransferResponse>> DirectTransfer(
+        string hostId,
+        [FromBody] DirectTransferRequest request,
+        [FromServices] IDirectTransferService transferService)
+    {
+        var res = await transferService.TransferDirectAsync(request with { SourceHostId = hostId });
+        return Ok(res);
+    }
 }

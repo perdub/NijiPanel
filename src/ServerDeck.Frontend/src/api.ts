@@ -162,6 +162,11 @@ export const api = {
         { method: 'POST', body: formData }
       );
     },
+    directTransfer: (data: { sourceHostId: string; sourcePath: string; targetHostId: string; targetPath: string }) =>
+      request<{ success: boolean; exitCode: number; output: string; error?: string }>(
+        `/hosts/${data.sourceHostId}/files/direct-transfer`,
+        { method: 'POST', body: JSON.stringify(data) }
+      ),
   },
   extras: {
     ports: (hostId: string) => request<HostPort[]>(`/hosts/${hostId}/ports`),
@@ -200,5 +205,37 @@ export const api = {
       request<{ command: string; publicKey: string }>(
         `/utils/setup-command${customPublicKey ? `?customPublicKey=${encodeURIComponent(customPublicKey)}` : ''}`
       ),
+  },
+  backup: {
+    export: (passphrase: string) => {
+      const token = getToken();
+      return fetch(`${API_BASE}/backup/export`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ passphrase }),
+      });
+    },
+    import: (file: File, passphrase: string) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('passphrase', passphrase);
+      return request<{ success: boolean; importedHosts: number }>('/backup/import', {
+        method: 'POST',
+        body: formData,
+      });
+    },
+    cloudExport: (customPassphrase?: string) =>
+      request<{ shareUrl: string; shareCode: string; passphrase: string }>('/backup/cloud/export', {
+        method: 'POST',
+        body: JSON.stringify({ customPassphrase: customPassphrase || undefined }),
+      }),
+    cloudImport: (data: { shareCodeOrUrl: string; passphrase: string }) =>
+      request<{ success: boolean; importedHosts: number }>('/backup/cloud/import', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
   },
 };
