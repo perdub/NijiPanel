@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using NijiPanel.Backend.Services;
 
 namespace NijiPanel.Backend.Data;
 
@@ -163,30 +164,12 @@ public class DatabaseContext
 
     private void SeedCommandTemplates(SqliteConnection conn)
     {
-        string? jsonPath = null;
-        var candidates = new[]
-        {
-            Path.Combine(AppContext.BaseDirectory, "commands.json"),
-            Path.Combine(Directory.GetCurrentDirectory(), "commands.json"),
-            Path.Combine(AppContext.BaseDirectory, "../../../commands.json"),
-            Path.Combine(Directory.GetCurrentDirectory(), "src/NijiPanel.Backend/commands.json")
-        };
-
-        foreach (var c in candidates)
-        {
-            if (File.Exists(c))
-            {
-                jsonPath = Path.GetFullPath(c);
-                break;
-            }
-        }
-
-        if (jsonPath == null) return;
+        using var stream = EmbeddedAssetsManager.GetCommandsJsonStream();
+        if (stream == null) return;
 
         try
         {
-            var json = File.ReadAllText(jsonPath);
-            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            using var doc = System.Text.Json.JsonDocument.Parse(stream);
             var now = DateTime.UtcNow.ToString("o");
 
             using var tx = conn.BeginTransaction();

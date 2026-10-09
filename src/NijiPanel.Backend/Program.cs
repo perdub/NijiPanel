@@ -6,6 +6,11 @@ using NijiPanel.Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var webRoot = EmbeddedAssetsManager.EnsureWebRoot();
+builder.Environment.WebRootPath = webRoot;
+var fileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(webRoot);
+builder.Environment.WebRootFileProvider = fileProvider;
+
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<DatabaseContext>();
 builder.Services.AddSingleton<IEncryptionService, EncryptionService>();
@@ -109,9 +114,9 @@ app.UseWebSockets(new WebSocketOptions
     KeepAliveInterval = TimeSpan.FromSeconds(30)
 });
 
-// Serve frontend static files if wwwroot exists
-app.UseDefaultFiles();
-app.UseStaticFiles();
+// Serve frontend static files
+app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = fileProvider });
+app.UseStaticFiles(new StaticFileOptions { FileProvider = fileProvider });
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -194,6 +199,18 @@ app.Map("/ws/docker-exec", async (HttpContext context, IHostService hostService,
 });
 
 // SPA fallback for frontend client-side routing
-app.MapFallbackToFile("index.html");
+app.MapFallback(async context =>
+{
+    var indexPath = Path.Combine(webRoot, "index.html");
+    if (File.Exists(indexPath))
+    {
+        context.Response.ContentType = "text/html; charset=utf-8";
+        await context.Response.SendFileAsync(indexPath);
+    }
+    else
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+    }
+});
 
 app.Run();

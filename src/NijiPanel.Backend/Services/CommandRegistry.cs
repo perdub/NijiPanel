@@ -179,31 +179,13 @@ public class CommandRegistry : ICommandRegistry
 
     public async Task ResetToDefaultsAsync()
     {
-        string? jsonPath = null;
-        var candidates = new[]
+        using var stream = EmbeddedAssetsManager.GetCommandsJsonStream();
+        if (stream == null)
         {
-            Path.Combine(AppContext.BaseDirectory, "commands.json"),
-            Path.Combine(Directory.GetCurrentDirectory(), "commands.json"),
-            Path.Combine(AppContext.BaseDirectory, "../../../commands.json"),
-            Path.Combine(Directory.GetCurrentDirectory(), "src/NijiPanel.Backend/commands.json")
-        };
-
-        foreach (var c in candidates)
-        {
-            if (File.Exists(c))
-            {
-                jsonPath = Path.GetFullPath(c);
-                break;
-            }
+            throw new FileNotFoundException("commands.json configuration stream not found.");
         }
 
-        if (jsonPath == null)
-        {
-            throw new FileNotFoundException("commands.json configuration file not found.");
-        }
-
-        var json = await File.ReadAllTextAsync(jsonPath);
-        using var doc = JsonDocument.Parse(json);
+        using var doc = await JsonDocument.ParseAsync(stream);
         var now = DateTime.UtcNow.ToString("o");
 
         using var conn = _db.CreateConnection();
