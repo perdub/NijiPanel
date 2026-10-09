@@ -8,23 +8,31 @@ html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
+  background-color: #0d0e12;
+  color: #f2f4f8;
 }
 
-/* Custom scrollbars */
+/* Carbon Dark Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f1422;
+  background: #0d0e12;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #263352;
-  border-radius: 3px;
+  background: #2b303c;
+  border-radius: 0px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #394b73;
+  background: #ffd100;
+}
+
+/* Carbon style selection */
+::selection {
+  background-color: #ffd100;
+  color: #0d0e12;
 }

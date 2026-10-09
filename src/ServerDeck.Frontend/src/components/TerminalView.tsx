@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Terminal as Xterm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import { Terminal as TerminalIcon, RotateCcw, Maximize2, Minimize2, Radio, AlertCircle } from 'lucide-react';
+import { Terminal as TerminalIcon, RotateCcw, Maximize2, Minimize2 } from 'lucide-react';
 import { Host } from '../types';
 import { getToken } from '../api';
 
@@ -36,18 +36,27 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
         fontSize: 13,
         fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
         theme: {
-          background: '#0a0d14',
-          foreground: '#f8fafc',
-          cursor: '#3b82f6',
-          selectionBackground: '#1e3a8a',
-          black: '#1e293b',
-          red: '#ef4444',
+          background: '#0d0e12',
+          foreground: '#f2f4f8',
+          cursor: '#ffd100', // Signature Dorito Yellow cursor
+          cursorAccent: '#0d0e12',
+          selectionBackground: 'rgba(255, 209, 0, 0.25)', // Golden Dorito selection
+          black: '#14161d',
+          red: '#f43f5e', // Nijika Ribbon red
           green: '#10b981',
-          yellow: '#f59e0b',
-          blue: '#3b82f6',
-          magenta: '#8b5cf6',
-          cyan: '#06b6d4',
-          white: '#f8fafc',
+          yellow: '#ffd100', // Dorito yellow
+          blue: '#f59e0b', // Warm amber
+          magenta: '#fb7185',
+          cyan: '#38bdf8',
+          white: '#f2f4f8',
+          brightBlack: '#5a6478',
+          brightRed: '#fb7185',
+          brightGreen: '#34d399',
+          brightYellow: '#fde047',
+          brightBlue: '#fbbf24',
+          brightMagenta: '#f43f5e',
+          brightCyan: '#7dd3fc',
+          brightWhite: '#ffffff',
         },
       });
 
@@ -150,61 +159,56 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
       if (socketRef.current) {
         socketRef.current.close();
       }
-      if (xtermInstance.current) {
-        xtermInstance.current.dispose();
-        xtermInstance.current = null;
-      }
     };
   }, [selectedHost]);
 
   const handleResetSession = () => {
     if (!selectedHost) return;
-    if (confirm('Сбросить текущую сессию и запустить новый терминал?')) {
-      const storageKey = `serverdeck_session_${selectedHost.id}`;
-      sessionStorage.removeItem(storageKey);
-      setCurrentSessionId(null);
-      connectTerminal();
-    }
+    sessionStorage.removeItem(`serverdeck_session_${selectedHost.id}`);
+    connectTerminal();
   };
 
   if (!selectedHost) {
     return (
-      <div className="p-12 text-center text-slate-400">
-        Выберите сервер в верхнем меню для открытия SSH терминала
+      <div className="p-12 text-center text-carbon-400 font-mono">
+        Select a host from the top navigation to launch the SSH terminal
       </div>
     );
   }
 
   return (
-    <div className={`space-y-3 ${fullscreen ? 'fixed inset-0 z-50 p-2 bg-deck-950 flex flex-col' : ''}`}>
+    <div className={`space-y-3 ${fullscreen ? 'fixed inset-0 z-50 p-2 bg-carbon-950 flex flex-col' : ''}`}>
       {/* Top Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <TerminalIcon className="w-5 h-5 text-emerald-400" />
-          <h1 className="text-xl font-bold text-white tracking-tight">SSH Терминал</h1>
-          <span className="text-xs text-slate-400 font-mono hidden sm:inline">
+      <div className="flex items-center justify-between border-b border-carbon-700/80 pb-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <TerminalIcon className="w-5 h-5 text-dorito-500" />
+          <h1 className="text-xl font-black text-white tracking-tight font-sans">SSH Terminal</h1>
+          <span className="text-xs text-carbon-400 font-mono hidden sm:inline">
             {selectedHost.username}@{selectedHost.host}:{selectedHost.port}
           </span>
           <span
-            className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+            className={`flex items-center gap-1.5 px-2 py-0.5 rounded-none font-mono text-[10px] font-medium border ${
               connected
                 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                 : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
             }`}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
-            <span>{connected ? 'Подключено (Живая сессия)' : reconnecting ? 'Переподключение...' : 'Отключено'}</span>
+            <span>{connected ? 'ONLINE • 140 BPM' : reconnecting ? 'Reconnecting...' : 'Disconnected'}</span>
+          </span>
+          <span className="hidden md:inline-flex text-[9px] font-mono px-1.5 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400">
+            Kessoku Shell ~ Nijika
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 font-mono">
           <button
             onClick={handleResetSession}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-deck-850 hover:bg-deck-800 text-slate-300 border border-deck-700 text-xs font-medium transition-colors"
-            title="Запустить новую сессию"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-carbon-850 hover:bg-carbon-800 text-carbon-200 hover:text-dorito-400 border border-carbon-700 text-xs font-medium transition-colors"
+            title="Start new session"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Новая сессия</span>
+            <span className="hidden sm:inline">New Session</span>
           </button>
 
           <button
@@ -212,17 +216,17 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
               setFullscreen(!fullscreen);
               setTimeout(() => fitAddonRef.current?.fit(), 100);
             }}
-            className="p-1.5 rounded-xl bg-deck-850 hover:bg-deck-800 text-slate-300 border border-deck-700 transition-colors"
-            title={fullscreen ? 'Свернуть' : 'Во весь экран'}
+            className="p-1.5 rounded-lg bg-carbon-850 hover:bg-carbon-800 text-carbon-200 hover:text-dorito-400 border border-carbon-700 transition-colors"
+            title={fullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
           >
             {fullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
         </div>
       </div>
 
-      {/* Terminal Viewport */}
+      {/* Terminal Viewport with IBM Carbon frame */}
       <div
-        className={`rounded-2xl border border-deck-800 bg-[#0a0d14] p-3 shadow-2xl relative overflow-hidden ${
+        className={`rounded-xl border border-carbon-700 bg-[#0d0e12] p-3 shadow-2xl relative overflow-hidden ${
           fullscreen ? 'flex-1' : 'h-[72vh]'
         }`}
       >

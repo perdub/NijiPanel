@@ -8,11 +8,9 @@ import {
   Play,
   Square,
   Check,
-  AlertCircle,
-  ExternalLink,
   ShieldAlert
 } from 'lucide-react';
-import { Host, HostPort, HostNote, SshTunnel } from '../types';
+import { Host, HostPort, SshTunnel } from '../types';
 import { api } from '../api';
 
 interface PortsNotesViewProps {
@@ -21,7 +19,7 @@ interface PortsNotesViewProps {
 
 export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) => {
   const [ports, setPorts] = useState<HostPort[]>([]);
-  const [noteTitle, setNoteTitle] = useState('Заметки по серверу');
+  const [noteTitle, setNoteTitle] = useState('Server Notes');
   const [noteContent, setNoteContent] = useState('');
   const [noteSaved, setNoteSaved] = useState(false);
   const [tunnels, setTunnels] = useState<SshTunnel[]>([]);
@@ -49,7 +47,7 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
         api.extras.tunnels(selectedHost.id),
       ]);
       setPorts(portsData);
-      setNoteTitle(noteData.title || 'Заметки по серверу');
+      setNoteTitle(noteData.title || 'Server Notes');
       setNoteContent(noteData.content || '');
       setTunnels(tunnelsData);
     } catch (err) {
@@ -77,7 +75,7 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
       setNewDesc('');
       loadData();
     } catch (err: any) {
-      alert(`Ошибка добавления порта: ${err.message}`);
+      alert(`Failed to add port: ${err.message}`);
     }
   };
 
@@ -87,7 +85,7 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
       await api.extras.deletePort(selectedHost.id, portId);
       loadData();
     } catch (err: any) {
-      alert(`Ошибка удаления: ${err.message}`);
+      alert(`Failed to delete port: ${err.message}`);
     }
   };
 
@@ -101,7 +99,7 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
       setNoteSaved(true);
       setTimeout(() => setNoteSaved(false), 2000);
     } catch (err: any) {
-      alert(`Ошибка сохранения заметок: ${err.message}`);
+      alert(`Failed to save notes: ${err.message}`);
     }
   };
 
@@ -113,58 +111,61 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
       await api.extras.createTunnel(selectedHost.id, {
         name: tunnelName.trim(),
         localPort,
-        remoteHost,
+        remoteHost: remoteHost.trim(),
         remotePort,
       });
       setAddTunnelModal(false);
       setTunnelName('');
       loadData();
     } catch (err: any) {
-      alert(`Ошибка создания туннеля: ${err.message}`);
+      alert(`Failed to create tunnel: ${err.message}`);
+    }
+  };
+
+  const handleToggleTunnel = async (t: SshTunnel) => {
+    if (!selectedHost) return;
+    try {
+      if (t.isActive) {
+        await api.extras.stopTunnel(selectedHost.id, t.id);
+      } else {
+        await api.extras.startTunnel(selectedHost.id, t.id);
+      }
+      loadData();
+    } catch (err: any) {
+      alert(`Failed to toggle tunnel: ${err.message}`);
     }
   };
 
   const handleDeleteTunnel = async (tunnelId: string) => {
     if (!selectedHost) return;
+    if (!confirm('Delete SSH tunnel?')) return;
     try {
       await api.extras.deleteTunnel(selectedHost.id, tunnelId);
       loadData();
     } catch (err: any) {
-      alert(`Ошибка удаления: ${err.message}`);
-    }
-  };
-
-  const handleToggleTunnel = async (tunnel: SshTunnel) => {
-    if (!selectedHost) return;
-    try {
-      if (tunnel.isActive) {
-        await api.extras.stopTunnel(selectedHost.id, tunnel.id);
-      } else {
-        const res = await api.extras.startTunnel(selectedHost.id, tunnel.id);
-        if (!res.success) {
-          alert(`Ошибка запуска туннеля: ${res.error}`);
-        }
-      }
-      loadData();
-    } catch (err: any) {
-      alert(`Ошибка туннеля: ${err.message}`);
+      alert(`Failed to delete tunnel: ${err.message}`);
     }
   };
 
   if (!selectedHost) {
     return (
-      <div className="p-12 text-center text-slate-400">
-        Выберите сервер в верхнем меню для просмотра портов и заметок
+      <div className="p-12 text-center text-carbon-400 font-mono">
+        Select a host from the top navigation to view port registry and notes
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white tracking-tight">Порты, Туннели & Заметки</h1>
-        <p className="text-xs sm:text-sm text-slate-400 mt-1">
-          Фиксация назначения сетевых портов, SSH-проброс и база знаний для {selectedHost.name}
+      <div className="border-b border-carbon-700/80 pb-4">
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-black text-white tracking-tight">Port Registry & Notes</h1>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-semibold">
+            SHIMOKITAZAWA STAGE GATEWAY
+          </span>
+        </div>
+        <p className="text-xs sm:text-sm text-carbon-400 mt-1 font-mono">
+          Network port registry, SSH tunneling, and documentation for {selectedHost.name}
         </p>
       </div>
 
@@ -173,48 +174,48 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Network className="w-5 h-5 text-blue-400" />
-              <h2 className="text-lg font-bold text-white">Реестр портов</h2>
+              <Network className="w-5 h-5 text-dorito-500" />
+              <h2 className="text-lg font-bold text-white font-sans">Port Registry</h2>
             </div>
             <button
               onClick={() => setAddPortModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs shadow-md shadow-dorito-500/20 transition-all font-mono"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Записать порт</span>
+              <span>Add Port</span>
             </button>
           </div>
 
-          <div className="rounded-2xl bg-deck-900 border border-deck-800 overflow-hidden shadow-lg">
+          <div className="rounded-xl bg-carbon-900 border border-carbon-700 overflow-hidden shadow-lg">
             {ports.length === 0 ? (
-              <div className="p-8 text-center text-slate-500 text-xs">
-                Пока нет записанных портов. Добавьте порты (например, 3000: Grafana, 5432: Postgres), чтобы не забывать назначение.
+              <div className="p-8 text-center text-carbon-500 text-xs font-mono">
+                No ports registered yet. Add ports (e.g. 3000: Grafana, 5432: Postgres) to document your architecture.
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-deck-850/60 text-slate-400 font-semibold border-b border-deck-800">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-carbon-850 text-carbon-300 font-bold border-b border-carbon-700">
                     <tr>
-                      <th className="py-2.5 px-4">Порт</th>
-                      <th className="py-2.5 px-3">Сервис</th>
-                      <th className="py-2.5 px-3">Описание</th>
+                      <th className="py-2.5 px-4">Port</th>
+                      <th className="py-2.5 px-3">Service</th>
+                      <th className="py-2.5 px-3">Description</th>
                       <th className="py-2.5 px-3 text-right"></th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-deck-800/60 font-mono">
+                  <tbody className="divide-y divide-carbon-800">
                     {ports.map((p) => (
-                      <tr key={p.id} className="hover:bg-deck-850/40 transition-colors">
-                        <td className="py-2.5 px-4 text-emerald-400 font-bold">
-                          {p.port} <span className="text-[10px] text-slate-500 font-normal uppercase">({p.protocol})</span>
+                      <tr key={p.id} className="hover:bg-carbon-850/60 transition-colors">
+                        <td className="py-2.5 px-4 text-dorito-400 font-bold">
+                          {p.port} <span className="text-[10px] text-carbon-500 font-normal uppercase">({p.protocol})</span>
                         </td>
                         <td className="py-2.5 px-3 text-white font-sans font-medium">{p.serviceName}</td>
-                        <td className="py-2.5 px-3 text-slate-400 font-sans text-[11px] truncate max-w-xs">
+                        <td className="py-2.5 px-3 text-carbon-400 font-sans text-[11px] truncate max-w-xs">
                           {p.description || '-'}
                         </td>
                         <td className="py-2.5 px-3 text-right">
                           <button
                             onClick={() => handleDeletePort(p.id)}
-                            className="p-1 text-slate-500 hover:text-rose-400 transition-colors"
+                            className="p-1 text-carbon-500 hover:text-rose-400 transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -231,51 +232,51 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
           <div className="pt-2">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <ShieldAlert className="w-5 h-5 text-amber-400" />
-                <h2 className="text-lg font-bold text-white">SSH Проброс портов (Туннели)</h2>
+                <ShieldAlert className="w-5 h-5 text-amber-500" />
+                <h2 className="text-lg font-bold text-white font-sans">SSH Port Forwarding (Tunnels)</h2>
               </div>
               <button
                 onClick={() => setAddTunnelModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-deck-850 hover:bg-deck-800 border border-deck-700 text-slate-300 text-xs font-medium transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-carbon-200 hover:text-dorito-400 text-xs font-mono font-medium transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Новый туннель</span>
+                <span>New Tunnel</span>
               </button>
             </div>
 
-            <div className="rounded-2xl bg-deck-900 border border-deck-800 overflow-hidden shadow-lg p-3 space-y-2">
+            <div className="rounded-xl bg-carbon-900 border border-carbon-700 overflow-hidden shadow-lg p-3 space-y-2 font-mono">
               {tunnels.length === 0 ? (
-                <div className="p-6 text-center text-slate-500 text-xs">
-                  Нет настроенных туннелей. Пробросьте удаленный порт (например, БД или админку контейнера) на локальный порт панели.
+                <div className="p-6 text-center text-carbon-500 text-xs">
+                  No tunnels configured. Forward remote ports (e.g. databases, internal web UIs) directly to NijiPanel.
                 </div>
               ) : (
                 tunnels.map((t) => (
                   <div
                     key={t.id}
-                    className="p-3 rounded-xl bg-deck-850 border border-deck-700/60 flex items-center justify-between gap-3 text-xs"
+                    className="p-3 rounded-lg bg-carbon-850 border border-carbon-700 flex items-center justify-between gap-3 text-xs"
                   >
                     <div>
-                      <div className="font-semibold text-white">{t.name}</div>
-                      <div className="font-mono text-slate-400 text-[11px] mt-0.5">
-                        Локальный :{t.localPort} → {t.remoteHost}:{t.remotePort}
+                      <div className="font-bold text-white font-sans">{t.name}</div>
+                      <div className="font-mono text-carbon-400 text-[11px] mt-0.5">
+                        Local :{t.localPort} → {t.remoteHost}:{t.remotePort}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleToggleTunnel(t)}
-                        className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                           t.isActive
                             ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                             : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                         }`}
                       >
                         {t.isActive ? <Square className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                        <span>{t.isActive ? 'Остановить' : 'Запустить'}</span>
+                        <span>{t.isActive ? 'Stop' : 'Start'}</span>
                       </button>
                       <button
                         onClick={() => handleDeleteTunnel(t.id)}
-                        className="p-1.5 text-slate-500 hover:text-rose-400"
+                        className="p-1.5 text-carbon-400 hover:text-rose-400"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -291,31 +292,31 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <StickyNote className="w-5 h-5 text-amber-400" />
-              <h2 className="text-lg font-bold text-white">Заметки и инструкции</h2>
+              <StickyNote className="w-5 h-5 text-dorito-500" />
+              <h2 className="text-lg font-bold text-white font-sans">Notes & Documentation</h2>
             </div>
             <button
               onClick={handleSaveNote}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium shadow-md shadow-blue-600/20 transition-all"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs shadow-md shadow-dorito-500/20 transition-all font-mono"
             >
-              {noteSaved ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Save className="w-3.5 h-3.5" />}
-              <span>{noteSaved ? 'Сохранено!' : 'Сохранить заметки'}</span>
+              {noteSaved ? <Check className="w-3.5 h-3.5 text-emerald-950" /> : <Save className="w-3.5 h-3.5" />}
+              <span>{noteSaved ? 'Saved!' : 'Save Notes'}</span>
             </button>
           </div>
 
-          <div className="rounded-2xl bg-deck-900 border border-deck-800 p-4 shadow-lg flex flex-col h-[520px]">
+          <div className="rounded-xl bg-carbon-900 border border-carbon-700 p-4 shadow-lg flex flex-col h-[520px]">
             <input
               type="text"
               value={noteTitle}
               onChange={(e) => setNoteTitle(e.target.value)}
-              placeholder="Заголовок заметок"
-              className="bg-transparent border-b border-deck-800 pb-2 mb-3 text-sm font-bold text-white focus:outline-none focus:border-blue-500"
+              placeholder="Notes title"
+              className="bg-transparent border-b border-carbon-700 pb-2 mb-3 text-sm font-bold text-white focus:outline-none focus:border-dorito-500 font-sans"
             />
             <textarea
               value={noteContent}
               onChange={(e) => setNoteContent(e.target.value)}
-              placeholder="Запишите сюда особенности конфигурации, секретные токены, пути к бэкапам, cron-задачи или полезные команды для этого сервера..."
-              className="flex-1 w-full bg-deck-850/50 border border-deck-800 rounded-xl p-3 text-xs sm:text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono resize-none leading-relaxed"
+              placeholder="Document configuration details, tokens, backup directories, cron schedules, or helpful command snippets..."
+              className="flex-1 w-full bg-carbon-850/60 border border-carbon-700 rounded-lg p-3 text-xs sm:text-sm text-carbon-100 placeholder-carbon-500 focus:outline-none focus:border-dorito-500 font-mono resize-none leading-relaxed"
             />
           </div>
         </div>
@@ -323,29 +324,29 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
 
       {/* Add Port Modal */}
       {addPortModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-deck-900 border border-deck-700 rounded-2xl p-5 shadow-2xl">
-            <h3 className="font-bold text-white text-base mb-1">Зафиксировать порт</h3>
-            <p className="text-xs text-slate-400 mb-4">Добавьте информацию о порте, чтобы не забыть назначение сервиса</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-carbon-900 border border-carbon-700 rounded-2xl p-5 shadow-2xl">
+            <h3 className="font-bold text-white text-base mb-1 font-sans">Register Port</h3>
+            <p className="text-xs text-carbon-400 mb-4 font-mono">Record port assignments and service mappings for documentation</p>
 
-            <form onSubmit={handleAddPort} className="space-y-3">
+            <form onSubmit={handleAddPort} className="space-y-3 font-mono">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Порт</label>
+                  <label className="block text-xs text-carbon-300 mb-1">Port</label>
                   <input
                     type="number"
                     value={newPort}
                     onChange={(e) => setNewPort(parseInt(e.target.value) || 80)}
                     required
-                    className="w-full bg-deck-850 border border-deck-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 font-mono"
+                    className="w-full bg-carbon-850 border border-carbon-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-dorito-500 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Протокол</label>
+                  <label className="block text-xs text-carbon-300 mb-1">Protocol</label>
                   <select
                     value={newProto}
                     onChange={(e) => setNewProto(e.target.value)}
-                    className="w-full bg-deck-850 border border-deck-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-carbon-850 border border-carbon-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-dorito-500 font-mono"
                   >
                     <option value="tcp">TCP</option>
                     <option value="udp">UDP</option>
@@ -356,25 +357,25 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Имя сервиса</label>
+                <label className="block text-xs text-carbon-300 mb-1">Service Name</label>
                 <input
                   type="text"
                   value={newService}
                   onChange={(e) => setNewService(e.target.value)}
                   placeholder="PostgreSQL / Grafana / API Gateway"
                   required
-                  className="w-full bg-deck-850 border border-deck-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                  className="w-full bg-carbon-850 border border-carbon-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-dorito-500 font-sans"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Описание / Для чего используется</label>
+                <label className="block text-xs text-carbon-300 mb-1">Description / Purpose</label>
                 <input
                   type="text"
                   value={newDesc}
                   onChange={(e) => setNewDesc(e.target.value)}
-                  placeholder="Основная база данных для продакшн микросервисов"
-                  className="w-full bg-deck-850 border border-deck-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                  placeholder="Main production database for microservices"
+                  className="w-full bg-carbon-850 border border-carbon-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-dorito-500 font-sans"
                 />
               </div>
 
@@ -382,15 +383,15 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
                 <button
                   type="button"
                   onClick={() => setAddPortModal(false)}
-                  className="px-3.5 py-1.5 rounded-xl bg-deck-850 text-slate-300 text-xs font-medium"
+                  className="px-3.5 py-1.5 rounded-lg bg-carbon-850 text-carbon-300 text-xs font-medium"
                 >
-                  Отмена
+                  Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-medium hover:bg-blue-500"
+                  className="px-4 py-1.5 rounded-lg bg-dorito-500 text-carbon-950 font-bold text-xs hover:bg-dorito-600 shadow-md shadow-dorito-500/20"
                 >
-                  Сохранить порт
+                  Save Port
                 </button>
               </div>
             </form>
@@ -400,55 +401,55 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
 
       {/* Add Tunnel Modal */}
       {addTunnelModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-deck-900 border border-deck-700 rounded-2xl p-5 shadow-2xl">
-            <h3 className="font-bold text-white text-base mb-1">Создать SSH-туннель</h3>
-            <p className="text-xs text-slate-400 mb-4">Пробросить удаленный порт хоста на локальный адрес панели</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-carbon-900 border border-carbon-700 rounded-2xl p-5 shadow-2xl">
+            <h3 className="font-bold text-white text-base mb-1 font-sans">Create SSH Tunnel</h3>
+            <p className="text-xs text-carbon-400 mb-4 font-mono">Forward remote server port to NijiPanel local network interface</p>
 
-            <form onSubmit={handleAddTunnel} className="space-y-3">
+            <form onSubmit={handleAddTunnel} className="space-y-3 font-mono">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Название туннеля</label>
+                <label className="block text-xs text-carbon-300 mb-1">Tunnel Name</label>
                 <input
                   type="text"
                   value={tunnelName}
                   onChange={(e) => setTunnelName(e.target.value)}
                   placeholder="Remote Postgres Access"
                   required
-                  className="w-full bg-deck-850 border border-deck-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                  className="w-full bg-carbon-850 border border-carbon-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-dorito-500 font-sans"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Локальный порт панели</label>
+                  <label className="block text-xs text-carbon-300 mb-1">Local Port</label>
                   <input
                     type="number"
                     value={localPort}
                     onChange={(e) => setLocalPort(parseInt(e.target.value) || 8080)}
                     required
-                    className="w-full bg-deck-850 border border-deck-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 font-mono"
+                    className="w-full bg-carbon-850 border border-carbon-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-dorito-500 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Удаленный порт сервера</label>
+                  <label className="block text-xs text-carbon-300 mb-1">Remote Port</label>
                   <input
                     type="number"
                     value={remotePort}
                     onChange={(e) => setRemotePort(parseInt(e.target.value) || 8080)}
                     required
-                    className="w-full bg-deck-850 border border-deck-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 font-mono"
+                    className="w-full bg-carbon-850 border border-carbon-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-dorito-500 font-mono"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Удаленный хост назначения</label>
+                <label className="block text-xs text-carbon-300 mb-1">Remote Target Host</label>
                 <input
                   type="text"
                   value={remoteHost}
                   onChange={(e) => setRemoteHost(e.target.value)}
                   placeholder="127.0.0.1"
-                  className="w-full bg-deck-850 border border-deck-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 font-mono"
+                  className="w-full bg-carbon-850 border border-carbon-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-dorito-500 font-mono"
                 />
               </div>
 
@@ -456,15 +457,15 @@ export const PortsNotesView: React.FC<PortsNotesViewProps> = ({ selectedHost }) 
                 <button
                   type="button"
                   onClick={() => setAddTunnelModal(false)}
-                  className="px-3.5 py-1.5 rounded-xl bg-deck-850 text-slate-300 text-xs font-medium"
+                  className="px-3.5 py-1.5 rounded-lg bg-carbon-850 text-carbon-300 text-xs font-medium"
                 >
-                  Отмена
+                  Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-medium hover:bg-blue-500"
+                  className="px-4 py-1.5 rounded-lg bg-dorito-500 text-carbon-950 font-bold text-xs hover:bg-dorito-600 shadow-md shadow-dorito-500/20"
                 >
-                  Создать туннель
+                  Create Tunnel
                 </button>
               </div>
             </form>

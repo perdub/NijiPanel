@@ -99,6 +99,19 @@ public class DatabaseContext
                 is_active INTEGER NOT NULL DEFAULT 0,
                 FOREIGN KEY(host_id) REFERENCES hosts(id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS shared_files (
+                id TEXT PRIMARY KEY,
+                host_id TEXT NOT NULL,
+                file_path TEXT NOT NULL,
+                file_name TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT,
+                download_count INTEGER NOT NULL DEFAULT 0,
+                max_downloads INTEGER,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY(host_id) REFERENCES hosts(id) ON DELETE CASCADE
+            );
         ";
         cmd.ExecuteNonQuery();
     }

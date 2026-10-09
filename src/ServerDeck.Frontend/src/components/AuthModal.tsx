@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Lock, User, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+import { Lock, User, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 import { api, setToken } from '../api';
+import { DoritoLogo } from './DoritoLogo';
 
 interface AuthModalProps {
   isSetup: boolean;
@@ -19,12 +20,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isSetup, onSuccess }) => {
     setError(null);
 
     if (!username.trim() || !password) {
-      setError('Заполните все поля');
+      setError('Please fill in all fields');
       return;
     }
 
     if (!isSetup && password !== confirmPassword) {
-      setError('Пароли не совпадают');
+      setError('Passwords do not match');
       return;
     }
 
@@ -42,31 +43,43 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isSetup, onSuccess }) => {
         onSuccess(res.username);
       }
     } catch (err: any) {
-      setError(err.message || 'Ошибка авторизации');
+      setError(err.message || 'Authentication error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-deck-900 border border-deck-700/80 rounded-2xl shadow-2xl p-6 sm:p-8 relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="w-full max-w-md bg-carbon-900 border border-carbon-700 rounded-2xl shadow-2xl p-6 sm:p-8 relative">
+        {/* Top Nijika Ribbon / Dorito Accent Bar */}
+        <div className="absolute top-0 left-8 right-8 h-1 bg-gradient-to-r from-dorito-500 via-amber-500 to-rose-500 rounded-t-full"></div>
+
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 mb-4 shadow-lg shadow-blue-500/10">
-            <ShieldCheck className="w-8 h-8" />
+          <div className="mb-3 hover:scale-105 transition-transform">
+            <DoritoLogo size={58} className="drop-shadow-[0_4px_16px_rgba(255,209,0,0.4)]" />
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-            {!isSetup ? 'Первичная настройка' : 'Вход в ServerDeck'}
+
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-carbon-850 border border-carbon-700 text-[10px] font-mono text-carbon-400 mb-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-dorito-500 animate-pulse"></span>
+            <span>STARRY BACKSTAGE GATEWAY</span>
+          </div>
+
+          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+            {!isSetup ? 'Initial Setup' : 'Sign in to NijiPanel'}
           </h2>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1.5">
+          <p className="text-xs text-dorito-400 font-mono mt-0.5 font-medium">
+            ★ The Drummer of Your Servers ★
+          </p>
+          <p className="text-xs text-carbon-400 mt-2">
             {!isSetup
-              ? 'Задайте имя пользователя и пароль для защиты вашей панели'
-              : 'Введите данные администратора для доступа к управлению серверами'}
+              ? 'Configure administrator credentials to secure your server infrastructure'
+              : 'Enter your administrator credentials to access fleet management'}
           </p>
         </div>
 
         {error && (
-          <div className="mb-5 p-3 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center gap-2.5 text-xs text-red-400 animate-shake">
+          <div className="mb-5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-2.5 text-xs text-rose-400">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -74,47 +87,53 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isSetup, onSuccess }) => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">Логин</label>
+            <label className="block text-xs font-mono font-medium text-carbon-300 mb-1.5">
+              Username
+            </label>
             <div className="relative">
-              <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <User className="w-4 h-4 text-carbon-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="admin"
                 required
-                className="w-full bg-deck-850 border border-deck-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                className="w-full bg-carbon-850 border border-carbon-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-carbon-500 focus:outline-none focus:border-dorito-500 focus:ring-1 focus:ring-dorito-500 transition-all font-mono"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">Пароль</label>
+            <label className="block text-xs font-mono font-medium text-carbon-300 mb-1.5">
+              Password
+            </label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Lock className="w-4 h-4 text-carbon-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full bg-deck-850 border border-deck-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                className="w-full bg-carbon-850 border border-carbon-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-carbon-500 focus:outline-none focus:border-dorito-500 focus:ring-1 focus:ring-dorito-500 transition-all font-mono"
               />
             </div>
           </div>
 
           {!isSetup && (
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">Повторите пароль</label>
+              <label className="block text-xs font-mono font-medium text-carbon-300 mb-1.5">
+                Confirm password
+              </label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <Lock className="w-4 h-4 text-carbon-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full bg-deck-850 border border-deck-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                  className="w-full bg-carbon-850 border border-carbon-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-carbon-500 focus:outline-none focus:border-dorito-500 focus:ring-1 focus:ring-dorito-500 transition-all font-mono"
                 />
               </div>
             </div>
@@ -123,18 +142,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isSetup, onSuccess }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 transition-all disabled:opacity-50"
+            className="w-full mt-2 py-2.5 px-4 rounded-xl bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-dorito-500/20 transition-all disabled:opacity-50 active:scale-[0.99]"
           >
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <>
-                <span>{!isSetup ? 'Создать аккаунт и войти' : 'Войти в панель'}</span>
+                <span>{!isSetup ? 'Create Account & Sign In' : 'Sign In to NijiPanel'}</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
         </form>
+
+        {/* Easter egg footer note */}
+        <div className="mt-6 pt-4 border-t border-carbon-700 text-center">
+          <span className="text-[10px] font-mono text-carbon-500">
+            🥁 Kessoku Band Infrastructure • Powered by Dorito Ahoge
+          </span>
+        </div>
       </div>
     </div>
   );

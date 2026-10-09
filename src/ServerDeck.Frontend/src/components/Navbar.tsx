@@ -12,9 +12,7 @@ import {
   Menu,
   X,
   ChevronDown,
-  Plus,
-  Radio,
-  Clock
+  Plus
 } from 'lucide-react';
 import { Host } from '../types';
 import { DoritoLogo } from './DoritoLogo';
@@ -48,13 +46,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   const selectedHost = hosts.find((h) => h.id === selectedHostId) || hosts[0];
 
   const navItems = [
-    { id: 'hosts', label: 'Servers', icon: Server, requiresHost: false },
+    { id: 'hosts', label: 'Hosts', icon: Server, requiresHost: false },
     { id: 'docker', label: 'Containers', icon: Layers, requiresHost: true },
     { id: 'compose', label: 'Compose', icon: FolderGit2, requiresHost: true },
-    { id: 'files', label: 'Files', icon: FolderTree, requiresHost: true },
+    { id: 'files', label: 'File Manager', icon: FolderTree, requiresHost: true },
     { id: 'terminal', label: 'Terminal', icon: Terminal, requiresHost: true },
-    { id: 'cron', label: 'Cron', icon: Clock, requiresHost: true },
-    { id: 'ports', label: 'Ports & Notes', icon: Network, requiresHost: true },
+    { id: 'ports', label: 'Port Registry', icon: Network, requiresHost: true },
     { id: 'utils', label: 'Utils', icon: Wrench, requiresHost: false },
   ];
 
@@ -101,7 +98,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                   <span className="max-w-[110px] sm:max-w-[170px] truncate font-mono text-xs">
-                    {selectedHost ? selectedHost.name : 'Выберите сервер'}
+                    {selectedHost ? selectedHost.name : 'Select host'}
                   </span>
                   <ChevronDown className="w-3.5 h-3.5 text-carbon-400" />
                 </button>
@@ -112,7 +109,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     onMouseLeave={() => setHostDropdownOpen(false)}
                   >
                     <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-carbon-400 border-b border-carbon-700 flex justify-between items-center">
-                      <span className="font-mono text-[11px]">Хосты ({hosts.length})</span>
+                      <span className="font-mono text-[11px]">Hosts ({hosts.length})</span>
                       <button
                         onClick={() => {
                           setHostDropdownOpen(false);
@@ -120,7 +117,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         }}
                         className="text-dorito-500 hover:text-dorito-400 font-mono text-xs flex items-center gap-1 transition-colors"
                       >
-                        <Plus className="w-3 h-3" /> Добавить
+                        <Plus className="w-3 h-3" /> Add Host
                       </button>
                     </div>
                     <div className="max-h-60 overflow-y-auto py-1">
@@ -200,14 +197,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={onOpenSettings}
               className="p-2 rounded-lg text-carbon-400 hover:text-dorito-500 hover:bg-carbon-800 transition-colors"
-              title="Настройки мастер-ключа и пароля"
+              title="Master Key & Password Settings"
             >
               <Key className="w-4 h-4" />
             </button>
             <button
               onClick={onLogout}
               className="p-2 rounded-lg text-carbon-400 hover:text-rose-400 hover:bg-carbon-800 transition-colors"
-              title="Выйти"
+              title="Sign out"
             >
               <LogOut className="w-4 h-4" />
             </button>
