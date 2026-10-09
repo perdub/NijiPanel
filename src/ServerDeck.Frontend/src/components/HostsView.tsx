@@ -23,7 +23,8 @@ import {
   X,
   Play,
   LayoutList,
-  LayoutGrid
+  LayoutGrid,
+  Compass
 } from 'lucide-react';
 import { Host, HostStats, HostMetricsHistory, BenchmarkResult } from '../types';
 import { api } from '../api';
@@ -36,6 +37,7 @@ interface HostsViewProps {
   onSelectHost: (hostId: string) => void;
   onOpenTab: (tab: string, hostId?: string) => void;
   masterPublicKey: string;
+  onOpenOnboarding?: () => void;
 }
 
 export const HostsView: React.FC<HostsViewProps> = ({
@@ -43,7 +45,8 @@ export const HostsView: React.FC<HostsViewProps> = ({
   onRefresh,
   onSelectHost,
   onOpenTab,
-  masterPublicKey
+  masterPublicKey,
+  onOpenOnboarding,
 }) => {
   const [statsMap, setStatsMap] = useState<Record<string, HostStats>>({});
   const [loadingStats, setLoadingStats] = useState<Record<string, boolean>>({});
@@ -311,10 +314,19 @@ export const HostsView: React.FC<HostsViewProps> = ({
           <p className="text-xs sm:text-sm text-carbon-400 max-w-md mx-auto mt-2 mb-6">
             Add your first server over pure SSH to inspect Docker containers, Compose stacks, files, and live shell in rhythmic harmony.
           </p>
-          <div className="flex justify-center gap-3">
+          <div className="flex flex-wrap justify-center gap-3">
+            {onOpenOnboarding && (
+              <button
+                onClick={onOpenOnboarding}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-carbon-850 hover:bg-carbon-800 border border-dorito-500/40 text-xs sm:text-sm font-mono font-medium text-dorito-400 transition-colors shadow-sm"
+              >
+                <Compass className="w-4 h-4 text-dorito-500" />
+                <span>Launch Setup Wizard</span>
+              </button>
+            )}
             <button
               onClick={() => setSetupCommandModalOpen(true)}
-              className="px-4 py-2 rounded-lg bg-carbon-850 border border-carbon-700 text-xs sm:text-sm font-mono font-medium text-dorito-400 hover:bg-carbon-800 transition-colors"
+              className="px-4 py-2 rounded-lg bg-carbon-850 border border-carbon-700 text-xs sm:text-sm font-mono font-medium text-carbon-300 hover:text-white hover:bg-carbon-800 transition-colors"
             >
               Copy Setup Command
             </button>

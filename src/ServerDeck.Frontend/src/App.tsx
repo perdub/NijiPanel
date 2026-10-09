@@ -13,6 +13,7 @@ import { FirewallView } from './components/FirewallView';
 import { CronView } from './components/CronView';
 import { UtilsView } from './components/UtilsView';
 import { SettingsModal } from './components/SettingsModal';
+import { OnboardingModal } from './components/OnboardingModal';
 import { AuthModal } from './components/AuthModal';
 import { NotificationDrawer } from './components/NotificationDrawer';
 import { api, clearToken, getToken } from './api';
@@ -31,6 +32,7 @@ export const App: React.FC = () => {
   const [selectedHostId, setSelectedHostId] = useState<string | null>(null);
   const [masterKey, setMasterKey] = useState<MasterKey | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [fileToEditPath, setFileToEditPath] = useState<string | null>(null);
 
   // Sidebar states
@@ -129,6 +131,13 @@ export const App: React.FC = () => {
 
       if (hostsData.length > 0 && !selectedHostId) {
         setSelectedHostId(hostsData[0].id);
+      } else if (hostsData.length === 0) {
+        try {
+          const completed = localStorage.getItem('nijipanel_onboarding_completed');
+          if (!completed) {
+            setOnboardingOpen(true);
+          }
+        } catch {}
       }
     } catch (err) {
       console.error('Error loading fleet data', err);
@@ -229,6 +238,7 @@ export const App: React.FC = () => {
           onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
           onOpenAddHost={() => setActiveTab('hosts')}
           onRefreshData={loadData}
+          onOpenOnboarding={() => setOnboardingOpen(true)}
         />
 
         <main className="flex-1 w-full p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto overflow-x-hidden">
@@ -239,6 +249,7 @@ export const App: React.FC = () => {
               onSelectHost={(id) => setSelectedHostId(id)}
               onOpenTab={(tab) => setActiveTab(tab)}
               masterPublicKey={masterKey?.publicKey || ''}
+              onOpenOnboarding={() => setOnboardingOpen(true)}
             />
           )}
 
@@ -296,6 +307,14 @@ export const App: React.FC = () => {
         onClose={() => setSettingsOpen(false)}
         masterKey={masterKey}
         onMasterKeyUpdated={(updated) => setMasterKey(updated)}
+      />
+
+      <OnboardingModal
+        isOpen={onboardingOpen}
+        onClose={() => setOnboardingOpen(false)}
+        masterKey={masterKey}
+        onHostCreated={loadData}
+        onNavigateTab={(tab) => setActiveTab(tab)}
       />
 
       <NotificationDrawer

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Plus, RefreshCw, Server, ShieldCheck } from 'lucide-react';
+import { Menu, Plus, RefreshCw, Server, ShieldCheck, Compass } from 'lucide-react';
 import { Host } from '../types';
 
 interface TopHeaderProps {
@@ -8,6 +8,7 @@ interface TopHeaderProps {
   onOpenMobileSidebar: () => void;
   onOpenAddHost: () => void;
   onRefreshData?: () => void;
+  onOpenOnboarding?: () => void;
 }
 
 const TAB_TITLES: Record<string, { title: string; subtitle: string }> = {
@@ -30,6 +31,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   onOpenMobileSidebar,
   onOpenAddHost,
   onRefreshData,
+  onOpenOnboarding,
 }) => {
   const currentTab = TAB_TITLES[activeTab] || { title: 'Dashboard', subtitle: 'Server administration' };
 
@@ -73,6 +75,17 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             title="Refresh host data"
           >
             <RefreshCw className="w-4 h-4" />
+          </button>
+        )}
+
+        {onOpenOnboarding && (
+          <button
+            onClick={onOpenOnboarding}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-carbon-300 hover:text-dorito-400 text-xs font-mono transition-colors"
+            title="Setup Guide & Onboarding"
+          >
+            <Compass className="w-3.5 h-3.5 text-dorito-500" />
+            <span className="hidden sm:inline">Setup Guide</span>
           </button>
         )}
 
