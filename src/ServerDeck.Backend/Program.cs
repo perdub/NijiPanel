@@ -44,7 +44,7 @@ if (string.IsNullOrWhiteSpace(jwtSecret))
     else
     {
         var randomBytes = new byte[64];
-        RandomNumberGenerator.Fill(randomBytes);
+        System.Security.Cryptography.RandomNumberGenerator.Fill(randomBytes);
         jwtSecret = Convert.ToBase64String(randomBytes);
         File.WriteAllText(secretFile, jwtSecret);
     }

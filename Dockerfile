@@ -16,7 +16,7 @@ COPY src/ServerDeck.Backend/*.csproj ./
 RUN dotnet restore
 
 COPY src/ServerDeck.Backend/ ./
-COPY --from=frontend-build /app/backend/wwwroot ./wwwroot/
+COPY --from=frontend-build /app/ServerDeck.Backend/wwwroot ./wwwroot/
 
 RUN dotnet publish -c Release -o /app/publish
 
@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=backend-build /app/publish ./
 
 ENV ASPNETCORE_URLS=http://+:8080
-ENV DATABASE_PATH=/data/servers.db
+ENV DATABASE_PATH=/data/nijipanel.db
 EXPOSE 8080
 
 VOLUME ["/data"]
