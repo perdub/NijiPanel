@@ -10,7 +10,10 @@ import {
   X,
   Edit2,
   Check,
-  RefreshCw
+  RefreshCw,
+  Copy,
+  ClipboardPaste,
+  Square
 } from 'lucide-react';
 import { Host } from '../types';
 import { getToken, api } from '../api';
@@ -46,7 +49,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
   const containersRef = useRef<Map<string, HTMLDivElement>>(new Map());
   const tabsCountRef = useRef(1);
 
-  // Initialize first tab when host is selected or changed
+  // Initialize tabs when host is selected or changed
   useEffect(() => {
     if (!selectedHost) {
       // Cleanup all instances
@@ -67,20 +70,59 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
     });
     instancesRef.current.clear();
 
-    const initialId = `term-${Date.now()}-1`;
-    const initialSessionId = `sess-${selectedHost.id}-${Date.now()}`;
-    const initialTab: TerminalTab = {
-      id: initialId,
-      sessionId: initialSessionId,
-      title: 'Session 1',
-      connected: false,
-      reconnecting: false,
-    };
+    // Check if tabs exist in localStorage for this host
+    const storageKey = `nijipanel_term_tabs_${selectedHost.id}`;
+    let loadedTabs: TerminalTab[] = [];
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          loadedTabs = parsed.map((t: any) => ({
+            id: t.id,
+            sessionId: t.sessionId,
+            title: t.title || 'Session',
+            connected: false,
+            reconnecting: false,
+          }));
+        }
+      }
+    } catch { }
 
-    tabsCountRef.current = 1;
-    setTabs([initialTab]);
-    setActiveTabId(initialId);
+    if (loadedTabs.length > 0) {
+      tabsCountRef.current = loadedTabs.length;
+      setTabs(loadedTabs);
+      setActiveTabId(loadedTabs[0].id);
+    } else {
+      const initialId = `term-${Date.now()}-1`;
+      const initialSessionId = `sess-${selectedHost.id}-${Date.now()}-1`;
+      const initialTab: TerminalTab = {
+        id: initialId,
+        sessionId: initialSessionId,
+        title: 'Session 1',
+        connected: false,
+        reconnecting: false,
+      };
+
+      tabsCountRef.current = 1;
+      setTabs([initialTab]);
+      setActiveTabId(initialId);
+    }
   }, [selectedHost?.id]);
+
+  // Save active tabs to localStorage whenever they change
+  useEffect(() => {
+    if (!selectedHost || tabs.length === 0) return;
+    const storageKey = `nijipanel_term_tabs_${selectedHost.id}`;
+    try {
+      const toSave = tabs.map((t) => ({
+        id: t.id,
+        sessionId: t.sessionId,
+        title: t.title,
+      }));
+      localStorage.setItem(storageKey, JSON.stringify(toSave));
+    } catch { }
+  }, [tabs, selectedHost?.id]);
 
   // Connect a specific terminal tab instance
   const connectTab = useCallback((tab: TerminalTab, containerEl: HTMLDivElement) => {
@@ -94,6 +136,8 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
         cursorBlink: true,
         fontSize: 13,
         fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
+        allowProposedApi: true,
+        scrollback: 10000,
         theme: {
           background: '#000000',
           foreground: '#f5f5f5',
@@ -118,6 +162,86 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
           brightWhite: '#ffffff',
         },
       });
+
+      // Keyboard handler: solve Ctrl+C (copy vs SIGINT) and Ctrl+V (paste without 0x16 quoted-insert)
+      term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
+        // 1. Copy on Ctrl+C / Cmd+C (if there is selected text)
+        if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'c' || e.key === 'C')) {
+          if (term.hasSelection()) {
+            if (e.type === 'keydown') {
+              const selected = term.getSelection();
+              navigator.clipboard.writeText(selected).catch(() => {});
+            }
+            return false; // Prevent xterm from sending \x03 (SIGINT) to shell
+          }
+          // If NO selection: let xterm send \x03 (SIGINT) to interrupt running command
+          return true;
+        }
+
+        // 2. Explicit Copy on Ctrl+Shift+C
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'c' || e.key === 'C')) {
+          if (term.hasSelection() && e.type === 'keydown') {
+            navigator.clipboard.writeText(term.getSelection()).catch(() => {});
+          }
+          return false;
+        }
+
+        // 3. Paste on Ctrl+V / Cmd+V / Ctrl+Shift+V
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) {
+          if (e.type === 'keydown') {
+            navigator.clipboard.readText().then((text) => {
+              if (text) {
+                term.paste(text);
+              }
+            }).catch(() => {
+              // Browser permission denied or non-HTTPS: fall back to DOM paste event
+            });
+          }
+          return false; // CRITICAL: Stop xterm from emitting 0x16 (which puts readline in quoted-insert and causes ~]]200!)
+        }
+
+        return true;
+      });
+
+      // Auto-copy on mouse text selection
+      term.onSelectionChange(() => {
+        if (term.hasSelection()) {
+          const selected = term.getSelection();
+          if (selected && selected.length > 0) {
+            navigator.clipboard.writeText(selected).catch(() => {});
+          }
+        }
+      });
+
+      // Smart right-click: copy if selected, paste if unselected
+      const handleContextMenu = async (e: MouseEvent) => {
+        e.preventDefault();
+        if (term.hasSelection()) {
+          const text = term.getSelection();
+          await navigator.clipboard.writeText(text).catch(() => {});
+          term.clearSelection();
+        } else {
+          try {
+            const text = await navigator.clipboard.readText();
+            if (text) {
+              term.paste(text);
+              term.focus();
+            }
+          } catch { }
+        }
+      };
+      containerEl.addEventListener('contextmenu', handleContextMenu);
+
+      // Native DOM paste event
+      const handlePaste = (e: ClipboardEvent) => {
+        e.preventDefault();
+        const text = e.clipboardData?.getData('text');
+        if (text) {
+          term.paste(text);
+          term.focus();
+        }
+      };
+      containerEl.addEventListener('paste', handlePaste);
 
       const fitAddon = new FitAddon();
       term.loadAddon(fitAddon);
@@ -319,6 +443,40 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
     }
   };
 
+  // Copy active terminal selection
+  const handleCopySelection = () => {
+    const inst = instancesRef.current.get(activeTabId);
+    if (inst) {
+      const text = inst.term.getSelection();
+      if (text) {
+        navigator.clipboard.writeText(text).catch(() => {});
+      }
+    }
+  };
+
+  // Paste from clipboard to active terminal
+  const handlePasteClipboard = async () => {
+    const inst = instancesRef.current.get(activeTabId);
+    if (inst) {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          inst.term.paste(text);
+          inst.term.focus();
+        }
+      } catch { }
+    }
+  };
+
+  // Send Ctrl+C (SIGINT) to interrupt command
+  const handleSendSigint = () => {
+    const inst = instancesRef.current.get(activeTabId);
+    if (inst && inst.ws && inst.ws.readyState === WebSocket.OPEN) {
+      inst.ws.send('\x03');
+      inst.term.focus();
+    }
+  };
+
   // Clear / Reset buffer of active terminal
   const handleResetActive = () => {
     const inst = instancesRef.current.get(activeTabId);
@@ -368,7 +526,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
           </span>
           {activeTab && (
             <span
-              className={`flex items-center gap-1.5 px-2 py-0.5 rounded font-mono text-[10px] font-medium border ${
+              className={`flex items-center gap-1.5 px-2 py-0.5 font-mono text-[10px] font-medium border ${
                 activeTab.connected
                   ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                   : activeTab.reconnecting
@@ -396,11 +554,38 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
           )}
         </div>
 
-        <div className="flex items-center gap-2 font-mono">
+        <div className="flex items-center gap-1.5 font-mono">
+          <button
+            onClick={handleCopySelection}
+            className="flex items-center gap-1.5 px-2 py-1 bg-carbon-850 hover:bg-carbon-800 text-carbon-200 hover:text-white border border-carbon-700 text-xs font-mono transition-colors"
+            title="Copy selected text to clipboard (Ctrl+C)"
+          >
+            <Copy className="w-3.5 h-3.5 text-dorito-400" />
+            <span className="hidden sm:inline">Copy</span>
+          </button>
+
+          <button
+            onClick={handlePasteClipboard}
+            className="flex items-center gap-1.5 px-2 py-1 bg-carbon-850 hover:bg-carbon-800 text-carbon-200 hover:text-white border border-carbon-700 text-xs font-mono transition-colors"
+            title="Paste from clipboard (Ctrl+V)"
+          >
+            <ClipboardPaste className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Paste</span>
+          </button>
+
+          <button
+            onClick={handleSendSigint}
+            className="flex items-center gap-1.5 px-2 py-1 bg-carbon-850 hover:bg-rose-950/40 text-rose-300 hover:text-rose-100 border border-carbon-700 hover:border-rose-700 text-xs font-mono transition-colors"
+            title="Send Ctrl+C (SIGINT) to interrupt current running command"
+          >
+            <Square className="w-3 h-3 fill-rose-400 text-rose-400" />
+            <span className="hidden sm:inline">^C Stop</span>
+          </button>
+
           {activeTab && !activeTab.connected && (
             <button
               onClick={handleReconnectActive}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-carbon-850 hover:bg-carbon-800 text-carbon-200 hover:text-white border border-carbon-700 text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 px-2 py-1 bg-carbon-850 hover:bg-carbon-800 text-carbon-200 hover:text-white border border-carbon-700 text-xs font-mono transition-colors"
               title="Reconnect active terminal"
             >
               <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
@@ -410,27 +595,25 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
 
           <button
             onClick={handleResetActive}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-carbon-850 hover:bg-carbon-800 text-carbon-200 hover:text-white border border-carbon-700 text-xs font-medium transition-colors"
+            className="flex items-center gap-1.5 px-2 py-1 bg-carbon-850 hover:bg-carbon-800 text-carbon-200 hover:text-white border border-carbon-700 text-xs font-mono transition-colors"
             title="Clear terminal buffer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Clear Buffer</span>
+            <span className="hidden sm:inline">Clear</span>
           </button>
 
           <button
-            onClick={() => {
-              setFullscreen(!fullscreen);
-            }}
-            className="p-1.5 rounded-lg bg-carbon-850 hover:bg-carbon-800 text-carbon-200 hover:text-white border border-carbon-700 transition-colors"
+            onClick={() => setFullscreen(!fullscreen)}
+            className="p-1 bg-carbon-850 hover:bg-carbon-800 text-carbon-200 hover:text-white border border-carbon-700 transition-colors"
             title={fullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
           >
-            {fullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            {fullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>
 
       {/* Terminal Tab Bar */}
-      <div className="flex items-center justify-between bg-carbon-950 border border-carbon-700 rounded-t-lg overflow-x-auto no-scrollbar px-1 pt-1">
+      <div className="flex items-center justify-between bg-carbon-950 border border-carbon-700 overflow-x-auto no-scrollbar px-1 pt-1">
         <div className="flex items-center gap-1 min-w-0">
           {tabs.map((tab) => {
             const isActive = tab.id === activeTabId;
@@ -440,7 +623,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
               <div
                 key={tab.id}
                 onClick={() => setActiveTabId(tab.id)}
-                className={`group flex items-center gap-2 px-3 py-1.5 rounded-t border-t-2 text-xs font-mono select-none cursor-pointer transition-colors max-w-[200px] ${
+                className={`group flex items-center gap-2 px-3 py-1.5 border-t-2 text-xs font-mono select-none cursor-pointer transition-colors max-w-[200px] ${
                   isActive
                     ? 'bg-carbon-900 border-t-dorito-500 text-white font-medium shadow-sm'
                     : 'bg-carbon-950/60 border-t-transparent text-carbon-400 hover:text-carbon-200 hover:bg-carbon-900/40'
@@ -469,7 +652,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
                         if (e.key === 'Escape') setEditingTabId(null);
                       }}
                       autoFocus
-                      className="w-20 bg-black border border-dorito-500 rounded px-1 py-0.5 text-xs text-white outline-none"
+                      className="w-20 bg-black border border-dorito-500 px-1 py-0.5 text-xs text-white outline-none"
                     />
                     <button
                       onClick={handleSaveRename}
@@ -503,7 +686,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
                 {/* Close Tab Button */}
                 <button
                   onClick={(e) => handleCloseTab(e, tab.id)}
-                  className="p-0.5 rounded text-carbon-500 hover:text-rose-400 hover:bg-carbon-800 transition-colors ml-1"
+                  className="p-0.5 text-carbon-500 hover:text-rose-400 hover:bg-carbon-800 transition-colors ml-1"
                   title="Close session"
                 >
                   <X className="w-3 h-3" />
@@ -515,7 +698,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
           {/* New Tab Button */}
           <button
             onClick={handleAddTab}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-t text-xs font-mono text-carbon-400 hover:text-dorito-400 hover:bg-carbon-900/60 transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-mono text-carbon-400 hover:text-dorito-400 hover:bg-carbon-900/60 transition-colors"
             title="Open new terminal session"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -530,8 +713,8 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
 
       {/* Terminal Viewport */}
       <div
-        className={`rounded-b-lg border-x border-b border-carbon-700 bg-black p-3 shadow-2xl relative overflow-hidden ${
-          fullscreen ? 'flex-1 rounded-t-none' : 'h-[72vh]'
+        className={`border-x border-b border-carbon-700 bg-black p-3 shadow-2xl relative overflow-hidden ${
+          fullscreen ? 'flex-1' : 'h-[72vh]'
         }`}
       >
         {tabs.map((tab) => (

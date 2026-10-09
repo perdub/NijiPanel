@@ -284,7 +284,9 @@ export const App: React.FC = () => {
             />
           )}
 
-          {activeTab === 'terminal' && <TerminalView selectedHost={selectedHost} />}
+          <div className={activeTab === 'terminal' ? 'h-full' : 'hidden'}>
+            <TerminalView selectedHost={selectedHost} />
+          </div>
 
           {activeTab === 'cron' && (
             <CronView

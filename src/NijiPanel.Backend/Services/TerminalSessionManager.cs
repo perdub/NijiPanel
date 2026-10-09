@@ -117,7 +117,18 @@ public class TerminalSession : IDisposable
 
     public void Resize(uint cols, uint rows)
     {
-        // Window dimensions are initialized on ShellStream creation
+        if (cols == 0 || rows == 0) return;
+        try
+        {
+            var channelField = typeof(ShellStream).GetField("_channel", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var channel = channelField?.GetValue(Shell);
+            if (channel != null)
+            {
+                var method = channel.GetType().GetMethod("SendWindowChangeRequest", new[] { typeof(uint), typeof(uint), typeof(uint), typeof(uint) });
+                method?.Invoke(channel, new object[] { cols, rows, 0u, 0u });
+            }
+        }
+        catch { }
     }
 
     public void Dispose()
