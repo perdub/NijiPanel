@@ -227,7 +227,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           }}
                           className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-carbon-800 transition-colors ${
                             isCurrent
-                              ? 'bg-carbon-800 text-dorito-400 font-semibold border-l-2 border-dorito-500'
+                              ? 'bg-[#181818] text-dorito-400 font-semibold'
                               : 'text-carbon-200'
                           }`}
                         >
@@ -278,12 +278,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onClick={() => !isDisabled && handleSelectTab(item.id)}
                     disabled={isDisabled}
                     title={isCollapsed ? item.label : undefined}
-                    className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded text-xs font-medium transition-colors relative ${
+                    className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-xs font-medium transition-colors relative ${
                       isActive
-                        ? 'bg-carbon-800 text-dorito-400 font-semibold border-l-2 border-dorito-500'
+                        ? 'bg-[#181818] text-white font-semibold'
                         : isDisabled
                         ? 'opacity-30 cursor-not-allowed text-carbon-500'
-                        : 'text-carbon-300 hover:text-white hover:bg-carbon-900'
+                        : 'text-carbon-400 hover:text-white hover:bg-carbon-900/60'
                     } ${isCollapsed ? 'justify-center px-0' : ''}`}
                   >
                     <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-dorito-500' : 'text-carbon-400'}`} />
@@ -310,11 +310,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="flex items-center justify-between px-2.5 py-1.5 rounded bg-carbon-900 border border-carbon-700/80 text-[11px] font-mono text-carbon-300"
               title="Kessoku Band Drummer Rhythm Engine: 140 BPM synced with server heartbeat"
             >
-              <div className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-dorito-500 animate-ping" />
-                <span className="text-dorito-400 font-semibold">140 BPM</span>
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-dorito-500" />
+                <span className="text-carbon-300 font-medium">140 BPM</span>
               </div>
-              <span className="text-xs">🥁</span>
+              <span className="text-[10px] text-carbon-500 font-mono uppercase tracking-wider">SYNCED</span>
             </div>
           )}
 

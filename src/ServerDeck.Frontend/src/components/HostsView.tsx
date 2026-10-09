@@ -241,13 +241,13 @@ export const HostsView: React.FC<HostsViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-carbon-700/80 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-black text-white tracking-tight">Hosts</h1>
-            <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-none sm:rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-bold">
-              Kessoku Fleet ({hosts.length})
+            <h1 className="text-xl font-bold text-white tracking-tight">Hosts & Fleet</h1>
+            <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-carbon-800 text-carbon-300 border border-carbon-700">
+              {hosts.length} nodes
             </span>
           </div>
           <p className="text-xs text-carbon-400 mt-1 font-mono">
-            Agentless SSH monitoring and orchestration • Drummer rhythm engine
+            Agentless SSH infrastructure • Real-time resource metrics
           </p>
         </div>
 
@@ -316,10 +316,9 @@ export const HostsView: React.FC<HostsViewProps> = ({
           return (
             <div
               key={host.id}
-              className="group rounded-xl bg-carbon-900 border border-carbon-700 hover:border-dorito-500/60 p-4 sm:p-5 shadow-lg transition-all flex flex-col justify-between relative overflow-hidden"
+              className="rounded-lg bg-[#0d0d0d] border border-carbon-800 hover:border-carbon-700 p-4 shadow-sm transition-all flex flex-col justify-between relative"
             >
-              {/* Top Accent Strip on hover */}
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-dorito-500 to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+
 
               <div>
                 {/* Header: Name, Status & Carbon Badges */}
@@ -335,7 +334,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
                         {host.name}
                       </h3>
                       <span
-                        className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.2 rounded-none border ${
+                        className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.2 rounded px-1.5 py-0.5 border ${
                           isOnline
                             ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
                             : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
@@ -386,16 +385,16 @@ export const HostsView: React.FC<HostsViewProps> = ({
 
                 {/* Carbon Status Tags: OS, Uptime, Auth */}
                 <div className="flex flex-wrap items-center gap-1.5 mb-3.5 text-[10px] font-mono text-carbon-300">
-                  <span className="px-2 py-0.5 rounded-none bg-carbon-850 border border-carbon-700 truncate max-w-[170px]">
+                  <span className="px-2 py-0.5 rounded px-2 py-0.5 bg-carbon-900 border border-carbon-700 truncate max-w-[170px]">
                     {stats?.osInfo || 'Linux'}
                   </span>
                   {stats?.uptime && (
-                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-none bg-carbon-850 border border-carbon-700">
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded px-2 py-0.5 bg-carbon-900 border border-carbon-700">
                       <Clock className="w-2.5 h-2.5 text-carbon-400" />
                       {stats.uptime}
                     </span>
                   )}
-                  <span className="px-2 py-0.5 rounded-none bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-semibold uppercase">
+                  <span className="px-2 py-0.5 rounded px-2 py-0.5 bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-semibold uppercase">
                     {host.authType === 'global_key' ? 'Master Key' : host.authType === 'key' ? 'Custom Key' : 'Password'}
                   </span>
                 </div>
