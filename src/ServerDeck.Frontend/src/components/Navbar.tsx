@@ -16,7 +16,8 @@ import {
   ShoppingBag,
   Cpu,
   Bell,
-  Shield
+  Shield,
+  Clock
 } from 'lucide-react';
 import { Host } from '../types';
 import { DoritoLogo } from './DoritoLogo';
@@ -60,6 +61,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'docker', label: 'Containers', icon: Layers, requiresHost: true },
     { id: 'compose', label: 'Compose', icon: FolderGit2, requiresHost: true },
     { id: 'files', label: 'File Manager', icon: FolderTree, requiresHost: true },
+    { id: 'cron', label: 'Cron', icon: Clock, requiresHost: true },
     { id: 'terminal', label: 'Terminal', icon: Terminal, requiresHost: true },
     { id: 'ports', label: 'Port Registry', icon: Network, requiresHost: true },
     { id: 'firewall', label: 'Firewall', icon: Shield, requiresHost: true },
