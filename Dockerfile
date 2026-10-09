@@ -2,21 +2,21 @@
 FROM node:22-alpine AS frontend-build
 WORKDIR /app/frontend
 
-COPY src/ServerDeck.Frontend/package*.json ./
+COPY src/NijiPanel.Frontend/package*.json ./
 RUN npm install
 
-COPY src/ServerDeck.Frontend/ ./
+COPY src/NijiPanel.Frontend/ ./
 RUN npm run build
 
 # Stage 2: Build Backend (.NET 10)
 FROM mcr.microsoft.com/dotnet/sdk:10.0-preview AS backend-build
 WORKDIR /app/backend
 
-COPY src/ServerDeck.Backend/*.csproj ./
+COPY src/NijiPanel.Backend/*.csproj ./
 RUN dotnet restore
 
-COPY src/ServerDeck.Backend/ ./
-COPY --from=frontend-build /app/ServerDeck.Backend/wwwroot ./wwwroot/
+COPY src/NijiPanel.Backend/ ./
+COPY --from=frontend-build /app/NijiPanel.Backend/wwwroot ./wwwroot/
 
 RUN dotnet publish -c Release -o /app/publish
 
@@ -38,4 +38,4 @@ EXPOSE 8080
 
 VOLUME ["/data"]
 
-ENTRYPOINT ["dotnet", "ServerDeck.Backend.dll"]
+ENTRYPOINT ["dotnet", "NijiPanel.Backend.dll"]

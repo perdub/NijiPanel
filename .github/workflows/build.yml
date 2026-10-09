@@ -31,14 +31,14 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Build Frontend
-        working-directory: src/ServerDeck.Frontend
+        working-directory: src/NijiPanel.Frontend
         run: |
           npm ci || npm install
           npm run build
 
       - name: Publish Standalone Binary (Linux x64)
         run: |
-          dotnet publish src/ServerDeck.Backend/ServerDeck.Backend.csproj \
+          dotnet publish src/NijiPanel.Backend/NijiPanel.Backend.csproj \
             -c Release \
             -r linux-x64 \
             --self-contained true \
@@ -49,7 +49,7 @@ jobs:
 
       - name: Publish Standalone Binary (Windows x64)
         run: |
-          dotnet publish src/ServerDeck.Backend/ServerDeck.Backend.csproj \
+          dotnet publish src/NijiPanel.Backend/NijiPanel.Backend.csproj \
             -c Release \
             -r win-x64 \
             --self-contained true \
@@ -60,7 +60,7 @@ jobs:
 
       - name: Publish Standalone Binary (Linux ARM64)
         run: |
-          dotnet publish src/ServerDeck.Backend/ServerDeck.Backend.csproj \
+          dotnet publish src/NijiPanel.Backend/NijiPanel.Backend.csproj \
             -c Release \
             -r linux-arm64 \
             --self-contained true \
@@ -72,17 +72,17 @@ jobs:
       - name: Package & Archive Binaries
         run: |
           # 1. Linux x64
-          mv dist/linux-x64/ServerDeck.Backend dist/linux-x64/nijipanel
+          mv dist/linux-x64/NijiPanel.Backend dist/linux-x64/nijipanel
           chmod +x dist/linux-x64/nijipanel
           tar -czvf nijipanel-linux-x64.tar.gz -C dist/linux-x64 nijipanel
 
           # 2. Linux ARM64
-          mv dist/linux-arm64/ServerDeck.Backend dist/linux-arm64/nijipanel
+          mv dist/linux-arm64/NijiPanel.Backend dist/linux-arm64/nijipanel
           chmod +x dist/linux-arm64/nijipanel
           tar -czvf nijipanel-linux-arm64.tar.gz -C dist/linux-arm64 nijipanel
 
           # 3. Windows x64 (.exe)
-          mv dist/win-x64/ServerDeck.Backend.exe dist/win-x64/nijipanel.exe
+          mv dist/win-x64/NijiPanel.Backend.exe dist/win-x64/nijipanel.exe
           cd dist/win-x64 && zip -9 ../../nijipanel-windows-x64.zip nijipanel.exe && cd ../..
 
       - name: Upload Binary Artifact (Windows x64)

@@ -131,15 +131,15 @@ docker run -d \
 
 ### 1. Сборка фронтенда:
 ```bash
-cd src/ServerDeck.Frontend
+cd src/NijiPanel.Frontend
 npm install
 npm run build
 ```
-Статический бандл автоматически компилируется в `src/ServerDeck.Backend/wwwroot`.
+Статический бандл автоматически компилируется в `src/NijiPanel.Backend/wwwroot`.
 
 ### 2. Запуск бэкенда:
 ```bash
-cd src/ServerDeck.Backend
+cd src/NijiPanel.Backend
 dotnet run
 ```
 Сервер запустится на `http://localhost:5000` (или `http://localhost:8080`).
