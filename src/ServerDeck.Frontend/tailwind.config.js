@@ -8,19 +8,20 @@ export default {
   theme: {
     extend: {
       colors: {
-        // IBM Carbon Dark Palette
+        // IBM Carbon True Pitch Black Palette (OLED & Pure Neutral Dark)
         carbon: {
-          950: '#0d0e12', // Deepest background
-          900: '#14161d', // Primary panel / container background
-          850: '#1a1d26', // Elevated card / surface background
-          800: '#222633', // Hover / row background
-          700: '#2b303c', // Carbon crisp border (1px solid #2b303c)
-          600: '#383f4f', // Subtle divider
-          500: '#5a6478', // Muted text / icons
-          400: '#8c96a8', // Secondary text
-          300: '#b4bccb',
-          200: '#dce0e8',
-          100: '#f2f4f8',
+          950: '#000000', // Pure pitch black (OLED base)
+          900: '#080808', // Primary panel / container background
+          850: '#111111', // Elevated card / surface background
+          800: '#181818', // Hover / row background
+          750: '#222222', // Subtle borders
+          700: '#282828', // Carbon crisp border (1px solid #282828)
+          600: '#383838', // Subtle divider
+          500: '#666666', // Muted text / icons
+          400: '#999999', // Secondary text
+          300: '#cccccc',
+          200: '#e5e5e5',
+          100: '#f5f5f5',
         },
         // Nijika's Dorito Yellow & Warm Amber Palette
         dorito: {
@@ -43,19 +44,19 @@ export default {
           ribbon: '#f43f5e', // Nijika's iconic hair ribbon
           ribbonDark: '#be123c',
           drum: '#e0a96d',
-          stage: '#0d0e12',
-          card: '#1a1d26',
-          border: '#2b303c',
+          stage: '#000000',
+          card: '#111111',
+          border: '#282828',
         },
-        // Backward-compatible deck palette updated to Carbon + Dorito
+        // Backward-compatible deck palette updated to true black + Dorito
         deck: {
-          950: '#0d0e12',
-          900: '#14161d',
-          850: '#1a1d26',
-          800: '#222633',
-          700: '#2b303c',
-          600: '#383f4f',
-          500: '#5a6478',
+          950: '#000000',
+          900: '#080808',
+          850: '#111111',
+          800: '#181818',
+          700: '#282828',
+          600: '#383838',
+          500: '#666666',
           accent: '#ffd100',
           'accent-hover': '#f59e0b',
           success: '#10b981',

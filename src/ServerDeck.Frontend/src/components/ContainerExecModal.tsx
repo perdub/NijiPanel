@@ -45,12 +45,12 @@ export const ContainerExecModal: React.FC<ContainerExecModalProps> = ({
         fontSize: 13,
         fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
         theme: {
-          background: '#0d0e12',
-          foreground: '#f2f4f8',
+          background: '#000000',
+          foreground: '#f5f5f5',
           cursor: '#ffd100', // Signature Dorito Yellow cursor
-          cursorAccent: '#0d0e12',
+          cursorAccent: '#000000',
           selectionBackground: 'rgba(255, 209, 0, 0.25)',
-          black: '#14161d',
+          black: '#121212',
           red: '#f43f5e',
           green: '#10b981',
           yellow: '#ffd100',
@@ -242,7 +242,7 @@ export const ContainerExecModal: React.FC<ContainerExecModalProps> = ({
         </div>
 
         {/* Modal Terminal Body */}
-        <div className="flex-1 bg-[#0d0e12] p-3 rounded-b-2xl overflow-hidden relative">
+        <div className="flex-1 bg-black p-3 rounded-b-2xl overflow-hidden relative">
           <div ref={terminalRef} className="w-full h-full" />
         </div>
       </div>

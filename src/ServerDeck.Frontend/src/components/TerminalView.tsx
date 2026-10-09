@@ -36,12 +36,12 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
         fontSize: 13,
         fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
         theme: {
-          background: '#0d0e12',
-          foreground: '#f2f4f8',
+          background: '#000000',
+          foreground: '#f5f5f5',
           cursor: '#ffd100', // Signature Dorito Yellow cursor
-          cursorAccent: '#0d0e12',
+          cursorAccent: '#000000',
           selectionBackground: 'rgba(255, 209, 0, 0.25)', // Golden Dorito selection
-          black: '#14161d',
+          black: '#121212',
           red: '#f43f5e', // Nijika Ribbon red
           green: '#10b981',
           yellow: '#ffd100', // Dorito yellow
@@ -226,7 +226,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
 
       {/* Terminal Viewport with IBM Carbon frame */}
       <div
-        className={`rounded-xl border border-carbon-700 bg-[#0d0e12] p-3 shadow-2xl relative overflow-hidden ${
+        className={`rounded-xl border border-carbon-700 bg-black p-3 shadow-2xl relative overflow-hidden ${
           fullscreen ? 'flex-1' : 'h-[72vh]'
         }`}
       >

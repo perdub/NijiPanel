@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Navbar } from './components/Navbar';
+import { Sidebar } from './components/Sidebar';
+import { TopHeader } from './components/TopHeader';
 import { HostsView } from './components/HostsView';
 import { DockerView } from './components/DockerView';
 import { ComposeView } from './components/ComposeView';
@@ -31,6 +32,10 @@ export const App: React.FC = () => {
   const [masterKey, setMasterKey] = useState<MasterKey | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [fileToEditPath, setFileToEditPath] = useState<string | null>(null);
+
+  // Sidebar states
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Notification center states
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -155,7 +160,7 @@ export const App: React.FC = () => {
 
   if (!authChecked) {
     return (
-      <div className="h-screen w-screen bg-[#0d0e12] flex flex-col items-center justify-center text-carbon-400 gap-3">
+      <div className="h-screen w-screen bg-black flex flex-col items-center justify-center text-carbon-400 gap-3">
         <div className="relative mb-2 animate-bounce">
           <Loader2 className="w-12 h-12 animate-spin text-dorito-500 absolute -top-1 -left-1 opacity-40" />
           <span className="text-3xl select-none">🥁</span>
@@ -180,8 +185,8 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d0e12] text-carbon-100 flex flex-col font-sans">
-      <Navbar
+    <div className="min-h-screen bg-black text-carbon-100 flex font-sans">
+      <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         hosts={hosts}
@@ -193,66 +198,84 @@ export const App: React.FC = () => {
         unreadCount={unreadCount}
         onLogout={handleLogout}
         username={username}
+        isCollapsed={sidebarCollapsed}
+        setIsCollapsed={setSidebarCollapsed}
+        mobileOpen={mobileSidebarOpen}
+        setMobileOpen={setMobileSidebarOpen}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-        {activeTab === 'hosts' && (
-          <HostsView
-            hosts={hosts}
-            onRefresh={loadData}
-            onSelectHost={(id) => setSelectedHostId(id)}
-            onOpenTab={(tab) => setActiveTab(tab)}
-            masterPublicKey={masterKey?.publicKey || ''}
-          />
-        )}
+      <div
+        className={`flex-1 flex flex-col min-w-0 bg-black min-h-screen transition-all duration-200 ${
+          sidebarCollapsed ? 'lg:pl-[72px]' : 'lg:pl-64'
+        }`}
+      >
+        <TopHeader
+          activeTab={activeTab}
+          selectedHost={selectedHost}
+          onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
+          onOpenAddHost={() => setActiveTab('hosts')}
+          onRefreshData={loadData}
+        />
 
-        {activeTab === 'services' && (
-          <ServicesView
-            selectedHost={selectedHost}
-            hosts={hosts}
-            onSelectHost={(id) => setSelectedHostId(id)}
-          />
-        )}
+        <main className="flex-1 w-full p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto overflow-x-hidden">
+          {activeTab === 'hosts' && (
+            <HostsView
+              hosts={hosts}
+              onRefresh={loadData}
+              onSelectHost={(id) => setSelectedHostId(id)}
+              onOpenTab={(tab) => setActiveTab(tab)}
+              masterPublicKey={masterKey?.publicKey || ''}
+            />
+          )}
 
-        {activeTab === 'appstore' && (
-          <AppStoreView
-            selectedHost={selectedHost}
-            onNavigateToCompose={() => setActiveTab('compose')}
-          />
-        )}
+          {activeTab === 'services' && (
+            <ServicesView
+              selectedHost={selectedHost}
+              hosts={hosts}
+              onSelectHost={(id) => setSelectedHostId(id)}
+            />
+          )}
 
-        {activeTab === 'docker' && <DockerView selectedHost={selectedHost} />}
+          {activeTab === 'appstore' && (
+            <AppStoreView
+              selectedHost={selectedHost}
+              onNavigateToCompose={() => setActiveTab('compose')}
+            />
+          )}
 
-        {activeTab === 'compose' && (
-          <ComposeView
-            selectedHost={selectedHost}
-            onEditFile={handleEditComposeFile}
-          />
-        )}
+          {activeTab === 'docker' && <DockerView selectedHost={selectedHost} />}
 
-        {activeTab === 'files' && (
-          <FilesView
-            selectedHost={selectedHost}
-            initialPath={fileToEditPath || '/'}
-          />
-        )}
+          {activeTab === 'compose' && (
+            <ComposeView
+              selectedHost={selectedHost}
+              onEditFile={handleEditComposeFile}
+            />
+          )}
 
-        {activeTab === 'terminal' && <TerminalView selectedHost={selectedHost} />}
+          {activeTab === 'files' && (
+            <FilesView
+              selectedHost={selectedHost}
+              initialPath={fileToEditPath || '/'}
+            />
+          )}
 
-        {activeTab === 'cron' && (
-          <CronView
-            hosts={hosts}
-            selectedHost={selectedHost}
-            onSelectHost={(h) => setSelectedHostId(h.id)}
-          />
-        )}
+          {activeTab === 'terminal' && <TerminalView selectedHost={selectedHost} />}
 
-        {activeTab === 'ports' && <PortsNotesView selectedHost={selectedHost} />}
+          {activeTab === 'cron' && (
+            <CronView
+              hosts={hosts}
+              selectedHost={selectedHost}
+              onSelectHost={(h) => setSelectedHostId(h.id)}
+            />
+          )}
 
-        {activeTab === 'firewall' && <FirewallView selectedHost={selectedHost} />}
+          {activeTab === 'ports' && <PortsNotesView selectedHost={selectedHost} />}
 
-        {activeTab === 'utils' && <UtilsView masterPublicKey={masterKey?.publicKey || ''} />}
-      </main>
+          {activeTab === 'firewall' && <FirewallView selectedHost={selectedHost} />}
+
+          {activeTab === 'utils' && <UtilsView masterPublicKey={masterKey?.publicKey || ''} />}
+        </main>
+      </div>
 
       <SettingsModal
         isOpen={settingsOpen}

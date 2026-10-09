@@ -8,8 +8,8 @@ html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
-  background-color: #0d0e12;
-  color: #f2f4f8;
+  background-color: #000000;
+  color: #f5f5f5;
 }
 
 /* Carbon Dark Custom Scrollbars */
@@ -19,11 +19,11 @@ html, body, #root {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0d0e12;
+  background: #000000;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2b303c;
+  background: #262626;
   border-radius: 0px;
 }
 
@@ -34,5 +34,5 @@ html, body, #root {
 /* Carbon style selection */
 ::selection {
   background-color: #ffd100;
-  color: #0d0e12;
+  color: #000000;
 }
