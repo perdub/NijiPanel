@@ -6,6 +6,7 @@ import { ComposeView } from './components/ComposeView';
 import { FilesView } from './components/FilesView';
 import { TerminalView } from './components/TerminalView';
 import { PortsNotesView } from './components/PortsNotesView';
+import { CronView } from './components/CronView';
 import { UtilsView } from './components/UtilsView';
 import { SettingsModal } from './components/SettingsModal';
 import { AuthModal } from './components/AuthModal';
@@ -86,9 +87,15 @@ export const App: React.FC = () => {
 
   if (!authChecked) {
     return (
-      <div className="h-screen w-screen bg-[#0a0d14] flex flex-col items-center justify-center text-slate-400 gap-3">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-        <span className="text-sm font-medium tracking-wide">Загрузка ServerDeck...</span>
+      <div className="h-screen w-screen bg-[#0d0e12] flex flex-col items-center justify-center text-carbon-400 gap-3">
+        <div className="relative mb-2 animate-bounce">
+          <Loader2 className="w-12 h-12 animate-spin text-dorito-500 absolute -top-1 -left-1 opacity-40" />
+          <span className="text-3xl select-none">🥁</span>
+        </div>
+        <span className="text-sm font-semibold tracking-wider text-white font-sans">
+          Niji<span className="text-dorito-500">Panel</span>
+        </span>
+        <span className="text-xs font-mono text-carbon-400">The Drummer of Your Servers • Connecting...</span>
       </div>
     );
   }
@@ -105,7 +112,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0d14] text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#0d0e12] text-carbon-100 flex flex-col font-sans">
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -146,6 +153,14 @@ export const App: React.FC = () => {
         )}
 
         {activeTab === 'terminal' && <TerminalView selectedHost={selectedHost} />}
+
+        {activeTab === 'cron' && (
+          <CronView
+            hosts={hosts}
+            selectedHost={selectedHost}
+            onSelectHost={(h) => setSelectedHostId(h.id)}
+          />
+        )}
 
         {activeTab === 'ports' && <PortsNotesView selectedHost={selectedHost} />}
 

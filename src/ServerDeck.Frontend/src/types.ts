@@ -118,3 +118,21 @@ export interface MasterKey {
   keyType: string;
   fingerprint: string;
 }
+
+export interface CronJobItem {
+  id: string;
+  lineIndex: number;
+  schedule: string;
+  command: string;
+  comment: string;
+  isEnabled: boolean;
+  rawLine: string;
+  scheduleDescription: string;
+}
+
+export interface CronExecutionResult {
+  exitCode: number;
+  output: string;
+  error: string;
+  durationMs: number;
+}

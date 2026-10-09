@@ -8,7 +8,9 @@ import {
   HostPort,
   HostNote,
   SshTunnel,
-  MasterKey
+  MasterKey,
+  CronJobItem,
+  CronExecutionResult
 } from './types';
 
 const API_BASE = '/api';
@@ -236,6 +238,34 @@ export const api = {
       request<{ success: boolean; importedHosts: number }>('/backup/cloud/import', {
         method: 'POST',
         body: JSON.stringify(data),
+      }),
+  },
+  cron: {
+    list: (hostId: string) => request<CronJobItem[]>(`/hosts/${hostId}/cron`),
+    raw: (hostId: string) => request<{ content: string }>(`/hosts/${hostId}/cron/raw`),
+    saveRaw: (hostId: string, content: string) =>
+      request<{ message: string }>(`/hosts/${hostId}/cron/raw`, {
+        method: 'PUT',
+        body: JSON.stringify({ content }),
+      }),
+    add: (hostId: string, data: { schedule: string; command: string; comment?: string; isEnabled?: boolean }) =>
+      request<CronJobItem>(`/hosts/${hostId}/cron`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (hostId: string, lineIndex: number, data: { schedule: string; command: string; comment?: string; isEnabled?: boolean }) =>
+      request<CronJobItem>(`/hosts/${hostId}/cron/${lineIndex}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    delete: (hostId: string, lineIndex: number) =>
+      request<{ message: string }>(`/hosts/${hostId}/cron/${lineIndex}`, { method: 'DELETE' }),
+    toggle: (hostId: string, lineIndex: number) =>
+      request<CronJobItem>(`/hosts/${hostId}/cron/${lineIndex}/toggle`, { method: 'POST' }),
+    run: (hostId: string, command: string) =>
+      request<CronExecutionResult>(`/hosts/${hostId}/cron/run`, {
+        method: 'POST',
+        body: JSON.stringify({ command }),
       }),
   },
 };

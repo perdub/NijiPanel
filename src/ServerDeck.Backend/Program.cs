@@ -21,6 +21,8 @@ builder.Services.AddSingleton<IUtilsService, UtilsService>();
 builder.Services.AddSingleton<ITerminalSessionManager, TerminalSessionManager>();
 builder.Services.AddScoped<IDirectTransferService, DirectTransferService>();
 builder.Services.AddScoped<IBackupService, BackupService>();
+builder.Services.AddScoped<IFileShareService, FileShareService>();
+builder.Services.AddScoped<ICronService, CronService>();
 
 // JWT Authentication configuration
 var jwtSecret = builder.Configuration["JWT_SECRET"];
