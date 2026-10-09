@@ -60,6 +60,17 @@ public class SettingsService : ISettingsService
         if (string.IsNullOrEmpty(pub) || string.IsNullOrEmpty(priv))
         {
             RegenerateMasterKey();
+            return;
+        }
+
+        try
+        {
+            _encryptionService.Decrypt(priv);
+        }
+        catch
+        {
+            // Decryption failed with current key; regenerate cleanly
+            RegenerateMasterKey();
         }
     }
 
@@ -73,9 +84,21 @@ public class SettingsService : ISettingsService
 
     public string GetMasterPrivateKey()
     {
-        var encryptedPriv = GetSetting(MasterPrivateKeySettingKey)
-            ?? throw new InvalidOperationException("Master private key not found");
-        return _encryptionService.Decrypt(encryptedPriv);
+        var encryptedPriv = GetSetting(MasterPrivateKeySettingKey);
+        if (!string.IsNullOrEmpty(encryptedPriv))
+        {
+            try
+            {
+                return _encryptionService.Decrypt(encryptedPriv);
+            }
+            catch
+            {
+                // Fallback: regenerate master key if encryption secret changed
+            }
+        }
+
+        var newKey = RegenerateMasterKey();
+        return _encryptionService.Decrypt(GetSetting(MasterPrivateKeySettingKey)!);
     }
 
     public MasterKeyDto RegenerateMasterKey(int bits = 4096)

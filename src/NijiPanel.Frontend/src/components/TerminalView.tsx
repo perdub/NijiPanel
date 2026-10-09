@@ -13,7 +13,9 @@ import {
   RefreshCw,
   Copy,
   ClipboardPaste,
-  Square
+  Square,
+  Folder,
+  Layers
 } from 'lucide-react';
 import { Host } from '../types';
 import { getToken, api } from '../api';
@@ -21,7 +23,10 @@ import { getToken, api } from '../api';
 interface TerminalTab {
   id: string;
   sessionId: string;
+  tabIndex: number;
   title: string;
+  path: string;
+  tmuxSession?: string;
   connected: boolean;
   reconnecting: boolean;
 }
@@ -48,6 +53,8 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
   const instancesRef = useRef<Map<string, TerminalInstance>>(new Map());
   const containersRef = useRef<Map<string, HTMLDivElement>>(new Map());
   const tabsCountRef = useRef(1);
+  const tabsRef = useRef<TerminalTab[]>([]);
+  tabsRef.current = tabs;
 
   // Initialize tabs when host is selected or changed
   useEffect(() => {
@@ -58,6 +65,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
         inst.term.dispose();
       });
       instancesRef.current.clear();
+      containersRef.current.clear();
       setTabs([]);
       setActiveTabId('');
       return;
@@ -69,6 +77,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
       inst.term.dispose();
     });
     instancesRef.current.clear();
+    containersRef.current.clear();
 
     // Check if tabs exist in localStorage for this host
     const storageKey = `nijipanel_term_tabs_${selectedHost.id}`;
@@ -78,10 +87,13 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          loadedTabs = parsed.map((t: any) => ({
-            id: t.id,
-            sessionId: t.sessionId,
-            title: t.title || 'Session',
+          loadedTabs = parsed.map((t: any, idx: number) => ({
+            id: t.id || `term-${Date.now()}-${idx + 1}`,
+            sessionId: t.sessionId || `sess-${selectedHost.id}-${idx + 1}`,
+            tabIndex: t.tabIndex || idx + 1,
+            title: t.title || `Session ${idx + 1}`,
+            path: t.path || '~',
+            tmuxSession: t.tmuxSession || `niji-${idx + 1}`,
             connected: false,
             reconnecting: false,
           }));
@@ -89,17 +101,48 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
       }
     } catch { }
 
+    // Also attempt to query active host tmux sessions
+    api.terminal.getHostSessions(selectedHost.id).then((hostSessions) => {
+      if (hostSessions && hostSessions.length > 0) {
+        setTabs((currentTabs) => {
+          const merged = [...currentTabs];
+          for (const hs of hostSessions) {
+            const existing = merged.find((t) => t.tabIndex === hs.tabIndex || t.tmuxSession === hs.sessionName);
+            if (existing) {
+              existing.path = hs.path || existing.path;
+              existing.tmuxSession = hs.sessionName;
+            } else {
+              merged.push({
+                id: `term-${Date.now()}-${hs.tabIndex}`,
+                sessionId: `sess-${selectedHost.id}-${hs.tabIndex}`,
+                tabIndex: hs.tabIndex,
+                title: `Session ${hs.tabIndex}`,
+                path: hs.path || '~',
+                tmuxSession: hs.sessionName,
+                connected: false,
+                reconnecting: false,
+              });
+            }
+          }
+          return merged;
+        });
+      }
+    }).catch(() => {});
+
     if (loadedTabs.length > 0) {
-      tabsCountRef.current = loadedTabs.length;
+      tabsCountRef.current = Math.max(...loadedTabs.map((t) => t.tabIndex || 1));
       setTabs(loadedTabs);
       setActiveTabId(loadedTabs[0].id);
     } else {
       const initialId = `term-${Date.now()}-1`;
-      const initialSessionId = `sess-${selectedHost.id}-${Date.now()}-1`;
+      const initialSessionId = `sess-${selectedHost.id}-1`;
       const initialTab: TerminalTab = {
         id: initialId,
         sessionId: initialSessionId,
+        tabIndex: 1,
         title: 'Session 1',
+        path: '~',
+        tmuxSession: 'niji-1',
         connected: false,
         reconnecting: false,
       };
@@ -118,7 +161,10 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
       const toSave = tabs.map((t) => ({
         id: t.id,
         sessionId: t.sessionId,
+        tabIndex: t.tabIndex,
         title: t.title,
+        path: t.path,
+        tmuxSession: t.tmuxSession,
       }));
       localStorage.setItem(storageKey, JSON.stringify(toSave));
     } catch { }
@@ -193,9 +239,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
               if (text) {
                 term.paste(text);
               }
-            }).catch(() => {
-              // Browser permission denied or non-HTTPS: fall back to DOM paste event
-            });
+            }).catch(() => {});
           }
           return false; // CRITICAL: Stop xterm from emitting 0x16 (which puts readline in quoted-insert and causes ~]]200!)
         }
@@ -255,8 +299,8 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
       };
       instancesRef.current.set(tab.id, instance);
     } else {
-      if (instance.ws && instance.ws.readyState === WebSocket.OPEN) {
-        return; // Already actively connected
+      if (instance.ws && (instance.ws.readyState === WebSocket.OPEN || instance.ws.readyState === WebSocket.CONNECTING)) {
+        return; // Already actively connected or connecting
       }
     }
 
@@ -273,7 +317,9 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
     const cols = term.cols || 80;
     const rows = term.rows || 24;
 
-    const wsUrl = `${protocol}//${host}/ws/terminal?hostId=${selectedHost.id}&sessionId=${tab.sessionId}&cols=${cols}&rows=${rows}&access_token=${token || ''}`;
+    const tabIndexParam = `&tabIndex=${tab.tabIndex || 1}`;
+    const initialDirParam = tab.path && tab.path !== '~' ? `&initialDir=${encodeURIComponent(tab.path)}` : '';
+    const wsUrl = `${protocol}//${host}/ws/terminal?hostId=${selectedHost.id}&sessionId=${tab.sessionId}${tabIndexParam}${initialDirParam}&cols=${cols}&rows=${rows}&access_token=${token || ''}`;
     const ws = new WebSocket(wsUrl);
     instance.ws = ws;
 
@@ -289,8 +335,25 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
 
     ws.onmessage = (event) => {
       const data = event.data;
-      if (typeof data === 'string' && data.startsWith('{"type":"session_info"')) {
-        return;
+      if (typeof data === 'string' && data.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.type === 'session_info' || parsed.type === 'cwd') {
+            setTabs((prev) =>
+              prev.map((t) => {
+                if (t.id === tab.id) {
+                  return {
+                    ...t,
+                    path: parsed.path || t.path,
+                    tmuxSession: parsed.tmuxSession || t.tmuxSession,
+                  };
+                }
+                return t;
+              })
+            );
+            return;
+          }
+        } catch { }
       }
       term.write(data);
     };
@@ -314,20 +377,33 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
     });
   }, [selectedHost]);
 
-  // Ref callback for container divs
+  // Ref callback for container divs with reliable tabsRef lookup
   const setContainerRef = useCallback((tabId: string, el: HTMLDivElement | null) => {
     if (el) {
       containersRef.current.set(tabId, el);
-      const tab = tabs.find((t) => t.id === tabId);
+      const tab = tabsRef.current.find((t) => t.id === tabId);
       if (tab) {
         connectTab(tab, el);
       }
     } else {
       containersRef.current.delete(tabId);
     }
+  }, [connectTab]);
+
+  // Watch tabs state: ensure all mounted containers are attached and connected
+  useEffect(() => {
+    tabs.forEach((tab) => {
+      const containerEl = containersRef.current.get(tab.id);
+      if (containerEl) {
+        const inst = instancesRef.current.get(tab.id);
+        if (!inst || !inst.ws || inst.ws.readyState === WebSocket.CLOSED) {
+          connectTab(tab, containerEl);
+        }
+      }
+    });
   }, [tabs, connectTab]);
 
-  // Refit when active tab changes or fullscreen toggles
+  // Refit and refresh when active tab changes or fullscreen toggles
   useEffect(() => {
     if (!activeTabId) return;
     const timer = setTimeout(() => {
@@ -335,13 +411,14 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
       if (inst) {
         try {
           inst.fitAddon.fit();
+          inst.term.refresh(0, inst.term.rows - 1);
           inst.term.focus();
           if (inst.ws && inst.ws.readyState === WebSocket.OPEN) {
             inst.ws.send(JSON.stringify({ type: 'resize', cols: inst.term.cols, rows: inst.term.rows }));
           }
         } catch { }
       }
-    }, 60);
+    }, 50);
     return () => clearTimeout(timer);
   }, [activeTabId, fullscreen]);
 
@@ -363,16 +440,25 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, [activeTabId]);
 
-  // Add new terminal tab
+  // Add new terminal tab (inherits current active directory, starts in $HOME, never /)
   const handleAddTab = () => {
     if (!selectedHost) return;
     tabsCountRef.current += 1;
-    const newId = `term-${Date.now()}-${tabsCountRef.current}`;
-    const newSessionId = `sess-${selectedHost.id}-${Date.now()}-${tabsCountRef.current}`;
+    const nextIndex = tabsCountRef.current;
+
+    // Pass active tab's current path if available, otherwise '~'
+    const activeTab = tabs.find((t) => t.id === activeTabId);
+    const initialPath = activeTab?.path && activeTab.path !== '~' ? activeTab.path : '~';
+
+    const newId = `term-${Date.now()}-${nextIndex}`;
+    const newSessionId = `sess-${selectedHost.id}-${nextIndex}`;
     const newTab: TerminalTab = {
       id: newId,
       sessionId: newSessionId,
-      title: `Session ${tabsCountRef.current}`,
+      tabIndex: nextIndex,
+      title: `Session ${nextIndex}`,
+      path: initialPath,
+      tmuxSession: `niji-${nextIndex}`,
       connected: false,
       reconnecting: false,
     };
@@ -381,14 +467,14 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
     setActiveTabId(newId);
   };
 
-  // Close tab
+  // Close tab and kill remote tmux session if explicitly closed
   const handleCloseTab = (e: React.MouseEvent, tabId: string) => {
     e.stopPropagation();
 
     const targetTab = tabs.find((t) => t.id === tabId);
     if (targetTab) {
-      // Close backend session
-      api.terminal.closeSession(targetTab.sessionId).catch(() => {});
+      // Explicit tab close kills tmux session on host
+      api.terminal.closeSession(targetTab.sessionId, true).catch(() => {});
     }
 
     // Clean up local instance
@@ -409,14 +495,17 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
       if (remaining.length > 0) {
         setActiveTabId(remaining[remaining.length - 1].id);
       } else {
-        // If all tabs closed, create a fresh one
+        // If all tabs closed, create a fresh session
         if (selectedHost) {
           tabsCountRef.current += 1;
           const freshId = `term-${Date.now()}-${tabsCountRef.current}`;
           const freshTab: TerminalTab = {
             id: freshId,
-            sessionId: `sess-${selectedHost.id}-${Date.now()}-${tabsCountRef.current}`,
+            sessionId: `sess-${selectedHost.id}-${tabsCountRef.current}`,
+            tabIndex: tabsCountRef.current,
             title: `Session ${tabsCountRef.current}`,
+            path: '~',
+            tmuxSession: `niji-${tabsCountRef.current}`,
             connected: false,
             reconnecting: false,
           };
@@ -518,12 +607,13 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
       <div className="flex items-center justify-between border-b border-carbon-700/80 pb-2.5">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
-            <TerminalIcon className="w-5 h-5 text-dorito-500" />
-            <h1 className="text-base font-medium text-white tracking-tight font-sans">SSH Terminal</h1>
+            <TerminalIcon className="w-5 h-5 text-dorito-400" />
+            <h2 className="text-lg font-bold text-white tracking-wide font-mono">TERMINAL</h2>
           </div>
-          <span className="text-xs text-carbon-400 font-mono hidden sm:inline">
+          <span className="text-xs font-mono text-carbon-400 bg-carbon-850 px-2 py-0.5 border border-carbon-700">
             {selectedHost.username}@{selectedHost.host}:{selectedHost.port}
           </span>
+
           {activeTab && (
             <span
               className={`flex items-center gap-1.5 px-2 py-0.5 font-mono text-[10px] font-medium border ${
@@ -551,6 +641,31 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
                   : 'DISCONNECTED'}
               </span>
             </span>
+          )}
+
+          {activeTab && (
+            <div className="flex items-center gap-2">
+              <span className="text-carbon-600">|</span>
+              <div className="flex items-center gap-1.5 text-xs font-mono bg-carbon-900 px-2 py-0.5 border border-carbon-750">
+                <Folder className="w-3 h-3 text-dorito-400 shrink-0" />
+                <span className="text-carbon-400 text-[10px] uppercase">CWD:</span>
+                <span
+                  className="font-semibold text-emerald-400 max-w-[220px] truncate"
+                  title={`Current Working Directory: ${activeTab.path || '~'}`}
+                >
+                  {activeTab.path || '~'}
+                </span>
+              </div>
+
+              <span className="text-carbon-600 hidden sm:inline">|</span>
+              <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono bg-carbon-900 px-2 py-0.5 border border-carbon-750" title="Host keeps this session alive via tmux daemon">
+                <Layers className="w-3 h-3 text-amber-400 shrink-0" />
+                <span className="text-carbon-400 text-[10px] uppercase">TMUX:</span>
+                <span className="font-semibold text-amber-300">
+                  {activeTab.tmuxSession || `niji-${activeTab.tabIndex || 1}`}
+                </span>
+              </div>
+            </div>
           )}
         </div>
 
@@ -623,7 +738,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
               <div
                 key={tab.id}
                 onClick={() => setActiveTabId(tab.id)}
-                className={`group flex items-center gap-2 px-3 py-1.5 border-t-2 text-xs font-mono select-none cursor-pointer transition-colors max-w-[200px] ${
+                className={`group flex items-center gap-2 px-3 py-1.5 border-t-2 text-xs font-mono select-none cursor-pointer transition-colors max-w-[240px] ${
                   isActive
                     ? 'bg-carbon-900 border-t-dorito-500 text-white font-medium shadow-sm'
                     : 'bg-carbon-950/60 border-t-transparent text-carbon-400 hover:text-carbon-200 hover:bg-carbon-900/40'
@@ -663,13 +778,21 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
                     </button>
                   </div>
                 ) : (
-                  <span
-                    onDoubleClick={(e) => handleStartRename(e, tab)}
-                    className="truncate text-xs"
-                    title={`${tab.title} (double click to rename)`}
-                  >
-                    {tab.title}
-                  </span>
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span
+                      onDoubleClick={(e) => handleStartRename(e, tab)}
+                      className="truncate text-xs font-semibold"
+                      title={`${tab.title} (double click to rename)`}
+                    >
+                      {tab.title}
+                    </span>
+                    <span
+                      className="text-carbon-400 font-mono text-[10px] bg-carbon-850 px-1 py-0.5 border border-carbon-700 truncate max-w-[95px]"
+                      title={`Path: ${tab.path || '~'}`}
+                    >
+                      {tab.path ? (tab.path.length > 14 ? '...' + tab.path.slice(-11) : tab.path) : '~'}
+                    </span>
+                  </div>
                 )}
 
                 {/* Rename button on hover */}
@@ -687,7 +810,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
                 <button
                   onClick={(e) => handleCloseTab(e, tab.id)}
                   className="p-0.5 text-carbon-500 hover:text-rose-400 hover:bg-carbon-800 transition-colors ml-1"
-                  title="Close session"
+                  title="Close session (terminates remote tmux session)"
                 >
                   <X className="w-3 h-3" />
                 </button>

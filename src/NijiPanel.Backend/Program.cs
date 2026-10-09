@@ -123,6 +123,21 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+// Terminal REST endpoints for host-side session inspection and deletion
+app.MapGet("/api/hosts/{hostId}/terminal/sessions", async (string hostId, IHostService hostService, ITerminalSessionManager termManager) =>
+{
+    var host = await hostService.GetHostEntityAsync(hostId);
+    if (host == null) return Results.NotFound();
+    var sessions = await termManager.GetHostSessionsAsync(host);
+    return Results.Ok(sessions);
+});
+
+app.MapDelete("/api/terminal/sessions/{sessionId}", async (string sessionId, bool? killHost, ITerminalSessionManager termManager) =>
+{
+    await termManager.CloseSessionAsync(sessionId, killHost ?? false);
+    return Results.Ok(new { success = true });
+});
+
 // WebSocket endpoint for persistent interactive terminal
 app.Map("/ws/terminal", async (HttpContext context, IHostService hostService, ITerminalSessionManager termManager) =>
 {
@@ -148,6 +163,8 @@ app.Map("/ws/terminal", async (HttpContext context, IHostService hostService, IT
 
     var sessionId = context.Request.Query["sessionId"].ToString();
     var containerId = context.Request.Query["containerId"].ToString();
+    var initialDir = context.Request.Query["initialDir"].ToString();
+    int? tabIndex = int.TryParse(context.Request.Query["tabIndex"], out var ti) ? ti : null;
     uint.TryParse(context.Request.Query["cols"], out var cols);
     uint.TryParse(context.Request.Query["rows"], out var rows);
 
@@ -158,7 +175,9 @@ app.Map("/ws/terminal", async (HttpContext context, IHostService hostService, IT
         string.IsNullOrEmpty(sessionId) ? null : sessionId,
         cols,
         rows,
-        string.IsNullOrEmpty(containerId) ? null : containerId);
+        string.IsNullOrEmpty(containerId) ? null : containerId,
+        tabIndex,
+        string.IsNullOrEmpty(initialDir) ? null : initialDir);
 });
 
 app.Map("/ws/docker-exec", async (HttpContext context, IHostService hostService, ITerminalSessionManager termManager) =>

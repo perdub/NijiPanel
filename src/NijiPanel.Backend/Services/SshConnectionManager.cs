@@ -10,6 +10,7 @@ namespace NijiPanel.Backend.Services;
 public interface ISshConnectionManager
 {
     SshClient GetSshClient(HostEntity host);
+    SshClient CreateDedicatedSshClient(HostEntity host);
     SftpClient GetSftpClient(HostEntity host);
     Task<(int ExitCode, string Output, string Error)> RunCommandAsync(HostEntity host, string command, int timeoutSeconds = 30);
     Task<(bool Success, string? Error)> TestConnectionAsync(HostEntity host);
@@ -108,6 +109,15 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
         client.KeepAliveInterval = TimeSpan.FromSeconds(15);
         client.Connect();
         _sshClients[host.Id] = client;
+        return client;
+    }
+
+    public SshClient CreateDedicatedSshClient(HostEntity host)
+    {
+        var connInfo = CreateConnectionInfo(host);
+        var client = new SshClient(connInfo);
+        client.KeepAliveInterval = TimeSpan.FromSeconds(15);
+        client.Connect();
         return client;
     }
 

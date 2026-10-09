@@ -18,7 +18,12 @@ public class EncryptionService : IEncryptionService
         var secret = configuration["ENCRYPTION_KEY"];
         if (string.IsNullOrWhiteSpace(secret))
         {
-            var keyFile = Path.Combine(AppContext.BaseDirectory, "data", "encryption.key");
+            var dbPath = configuration["DATABASE_PATH"];
+            var dataDir = !string.IsNullOrWhiteSpace(dbPath)
+                ? (Path.GetDirectoryName(dbPath) ?? Path.Combine(AppContext.BaseDirectory, "data"))
+                : Path.Combine(AppContext.BaseDirectory, "data");
+
+            var keyFile = Path.Combine(dataDir, "encryption.key");
             Directory.CreateDirectory(Path.GetDirectoryName(keyFile)!);
             if (File.Exists(keyFile))
             {
@@ -26,10 +31,20 @@ public class EncryptionService : IEncryptionService
             }
             else
             {
-                var randomBytes = new byte[32];
-                RandomNumberGenerator.Fill(randomBytes);
-                secret = Convert.ToHexString(randomBytes);
-                File.WriteAllText(keyFile, secret);
+                // Also check AppContext base data for backward compatibility
+                var legacyKey = Path.Combine(AppContext.BaseDirectory, "data", "encryption.key");
+                if (File.Exists(legacyKey))
+                {
+                    secret = File.ReadAllText(legacyKey).Trim();
+                    try { File.WriteAllText(keyFile, secret); } catch { }
+                }
+                else
+                {
+                    var randomBytes = new byte[32];
+                    RandomNumberGenerator.Fill(randomBytes);
+                    secret = Convert.ToHexString(randomBytes);
+                    File.WriteAllText(keyFile, secret);
+                }
             }
         }
 

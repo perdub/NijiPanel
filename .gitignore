@@ -18,6 +18,8 @@ data/
 *.db
 *.db-shm
 *.db-wal
+nijipanel_data/
+publish/
 
 # OS
 .DS_Store

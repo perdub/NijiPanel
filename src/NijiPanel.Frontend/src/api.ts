@@ -484,8 +484,12 @@ export const api = {
       }),
   },
   terminal: {
-    closeSession: (sessionId: string) =>
-      request<{ success: boolean }>(`/terminal/sessions/${sessionId}`, { method: 'DELETE' }),
+    closeSession: (sessionId: string, killHost: boolean = false) =>
+      request<{ success: boolean }>(`/terminal/sessions/${sessionId}?killHost=${killHost}`, { method: 'DELETE' }),
+    getHostSessions: (hostId: string) =>
+      request<Array<{ sessionName: string; tabIndex: number; path: string; isAttached: boolean }>>(
+        `/hosts/${hostId}/terminal/sessions`
+      ),
   },
   commands: {
     getAll: () => request<CommandTemplate[]>('/commands'),
