@@ -6,6 +6,17 @@ export default {
   ],
   darkMode: 'class',
   theme: {
+    borderRadius: {
+      none: '0px',
+      DEFAULT: '0px',
+      sm: '0px',
+      md: '0px',
+      lg: '0px',
+      xl: '0px',
+      '2xl': '0px',
+      '3xl': '0px',
+      full: '0px',
+    },
     extend: {
       colors: {
         // IBM Carbon True Pitch Black Palette (OLED & Pure Neutral Dark)
@@ -41,14 +52,13 @@ export default {
           dorito: '#ffd100',
           amber: '#f59e0b',
           orange: '#ea580c',
-          ribbon: '#f43f5e', // Nijika's iconic hair ribbon
+          ribbon: '#f43f5e',
           ribbonDark: '#be123c',
           drum: '#e0a96d',
           stage: '#000000',
           card: '#111111',
           border: '#282828',
         },
-        // Backward-compatible deck palette updated to true black + Dorito
         deck: {
           950: '#000000',
           900: '#080808',

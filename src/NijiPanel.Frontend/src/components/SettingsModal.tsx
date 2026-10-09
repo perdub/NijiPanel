@@ -490,26 +490,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
-      <div className={`w-full ${activeSubTab === 'commands' ? 'max-w-4xl' : 'max-w-xl'} bg-carbon-900 border border-carbon-700 rounded-2xl shadow-2xl p-6 relative max-h-[92vh] overflow-y-auto transition-all`}>
+      <div className={`w-full ${activeSubTab === 'commands' ? 'max-w-4xl' : 'max-w-xl'} bg-carbon-900 border border-carbon-700 rounded-none shadow-2xl p-6 relative max-h-[92vh] overflow-y-auto transition-all`}>
         <div className="flex items-center justify-between pb-3 border-b border-carbon-700 mb-4">
           <div className="flex items-center gap-2.5">
             <DoritoLogo size={28} />
-            <h3 className="font-medium text-white text-lg font-sans">
+            <h3 className="font-medium text-white text-base font-sans tracking-tight">
               Niji<span className="text-dorito-500">Panel</span> Settings
             </h3>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-carbon-400 hover:text-white">
+          <button onClick={onClose} className="p-1 text-carbon-400 hover:text-white transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Sub Navigation */}
-        <div className="flex border-b border-carbon-700 mb-5 gap-3.5 text-xs font-mono font-semibold overflow-x-auto pb-1 scrollbar-thin">
+        <div className="flex border-b border-carbon-700 mb-5 gap-3.5 text-xs font-mono font-medium overflow-x-auto pb-1 scrollbar-thin">
           <button
             onClick={() => setActiveSubTab('key')}
             className={`pb-2.5 border-b-2 transition-colors whitespace-nowrap ${
               activeSubTab === 'key'
-                ? 'border-dorito-500 text-dorito-400 font-bold'
+                ? 'border-dorito-500 text-dorito-400'
                 : 'border-transparent text-carbon-400 hover:text-white'
             }`}
           >
@@ -519,7 +519,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onClick={() => setActiveSubTab('password')}
             className={`pb-2.5 border-b-2 transition-colors whitespace-nowrap ${
               activeSubTab === 'password'
-                ? 'border-dorito-500 text-dorito-400 font-bold'
+                ? 'border-dorito-500 text-dorito-400'
                 : 'border-transparent text-carbon-400 hover:text-white'
             }`}
           >
@@ -529,7 +529,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onClick={() => setActiveSubTab('alerts')}
             className={`pb-2.5 border-b-2 transition-colors whitespace-nowrap ${
               activeSubTab === 'alerts'
-                ? 'border-dorito-500 text-dorito-400 font-bold'
+                ? 'border-dorito-500 text-dorito-400'
                 : 'border-transparent text-carbon-400 hover:text-white'
             }`}
           >
@@ -539,7 +539,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onClick={() => setActiveSubTab('passkeys')}
             className={`pb-2.5 border-b-2 transition-colors whitespace-nowrap ${
               activeSubTab === 'passkeys'
-                ? 'border-dorito-500 text-dorito-400 font-bold'
+                ? 'border-dorito-500 text-dorito-400'
                 : 'border-transparent text-carbon-400 hover:text-white'
             }`}
           >
@@ -549,7 +549,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onClick={() => setActiveSubTab('backup')}
             className={`pb-2.5 border-b-2 transition-colors whitespace-nowrap ${
               activeSubTab === 'backup'
-                ? 'border-dorito-500 text-dorito-400 font-bold'
+                ? 'border-dorito-500 text-dorito-400'
                 : 'border-transparent text-carbon-400 hover:text-white'
             }`}
           >
@@ -559,7 +559,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onClick={() => setActiveSubTab('provisioning')}
             className={`pb-2.5 border-b-2 transition-colors whitespace-nowrap ${
               activeSubTab === 'provisioning'
-                ? 'border-dorito-500 text-dorito-400 font-bold'
+                ? 'border-dorito-500 text-dorito-400'
                 : 'border-transparent text-carbon-400 hover:text-white'
             }`}
           >
@@ -569,7 +569,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onClick={() => setActiveSubTab('commands')}
             className={`pb-2.5 border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
               activeSubTab === 'commands'
-                ? 'border-dorito-500 text-dorito-400 font-bold'
+                ? 'border-dorito-500 text-dorito-400'
                 : 'border-transparent text-carbon-400 hover:text-white'
             }`}
           >
@@ -1211,7 +1211,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   value={commandSearch}
                   onChange={(e) => setCommandSearch(e.target.value)}
                   placeholder="Search commands, keys, descriptions, placeholders..."
-                  className="w-full pl-9 pr-8 py-2 bg-black/60 border border-carbon-700 rounded-xl text-xs font-mono text-carbon-200 placeholder-carbon-500 focus:outline-none focus:border-dorito-500"
+                  className="w-full pl-9 pr-8 py-2 bg-black/60 border border-carbon-700 rounded-none text-xs font-mono text-carbon-200 placeholder-carbon-500 focus:outline-none focus:border-dorito-500"
                 />
                 {commandSearch && (
                   <button
@@ -1236,16 +1236,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       key={cat}
                       type="button"
                       onClick={() => setSelectedCategory(cat)}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all flex items-center gap-1.5 border ${
+                      className={`px-2.5 py-1 rounded-none text-[11px] font-mono transition-all flex items-center gap-1.5 border ${
                         isSelected
-                          ? 'bg-dorito-500/20 border-dorito-500 text-dorito-400 font-bold'
-                          : 'bg-carbon-800/80 border-carbon-700/80 text-carbon-400 hover:text-white hover:border-carbon-600'
+                          ? 'bg-dorito-500/15 border-dorito-500/80 text-dorito-400 font-medium'
+                          : 'bg-carbon-900 border-carbon-700/80 text-carbon-400 hover:text-white hover:border-carbon-600'
                       }`}
                     >
                       <span className="capitalize">{cat}</span>
                       <span
-                        className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                          isSelected ? 'bg-dorito-500 text-carbon-950 font-bold' : 'bg-carbon-700 text-carbon-400'
+                        className={`text-[10px] px-1 py-0.2 rounded-none font-mono ${
+                          isSelected ? 'bg-dorito-500 text-carbon-950 font-medium' : 'bg-carbon-800 text-carbon-400 border border-carbon-700/50'
                         }`}
                       >
                         {count}
@@ -1273,25 +1273,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   return (
                     <div
                       key={cmd.key}
-                      className="p-3.5 rounded-xl bg-carbon-800/50 border border-carbon-700/80 hover:border-carbon-600 transition-colors"
+                      className="p-3.5 rounded-none bg-carbon-850 border border-carbon-700 hover:border-carbon-600 transition-colors"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono font-semibold text-xs text-dorito-400">
+                          <span className="font-mono font-medium text-xs text-dorito-400">
                             {cmd.key}
                           </span>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-carbon-800 border border-carbon-700 text-carbon-300">
+                          <span className="px-2 py-0.5 rounded-none text-[10px] font-mono bg-carbon-800 border border-carbon-700 text-carbon-300">
                             {cmd.category}
                           </span>
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-carbon-900 border border-carbon-800 text-carbon-400">
+                          <span className="px-1.5 py-0.5 rounded-none text-[10px] font-mono bg-carbon-900 border border-carbon-800 text-carbon-400">
                             {cmd.timeoutSeconds}s
                           </span>
                           {cmd.isCustom ? (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-500/15 border border-amber-500/30 text-amber-400 font-semibold">
+                            <span className="px-1.5 py-0.5 rounded-none text-[10px] font-mono bg-amber-500/15 border border-amber-500/30 text-amber-400 font-medium">
                               CUSTOMIZED
                             </span>
                           ) : (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-carbon-800/80 text-carbon-500">
+                            <span className="px-1.5 py-0.5 rounded-none text-[10px] font-mono bg-carbon-800/80 text-carbon-500 border border-carbon-700/50">
                               DEFAULT
                             </span>
                           )}
@@ -1301,7 +1301,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <button
                             type="button"
                             onClick={() => handleCopyCommand(cmd.key, cmd.command)}
-                            className="p-1.5 rounded-lg text-carbon-400 hover:text-white hover:bg-carbon-800 transition-colors"
+                            className="p-1.5 rounded-none text-carbon-400 hover:text-white hover:bg-carbon-800 transition-colors"
                             title="Copy shell command"
                           >
                             {copiedCmdKey === cmd.key ? (
@@ -1314,7 +1314,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             <button
                               type="button"
                               onClick={() => handleStartEditCommand(cmd)}
-                              className="p-1.5 rounded-lg text-carbon-400 hover:text-dorito-400 hover:bg-carbon-800 transition-colors"
+                              className="p-1.5 rounded-none text-carbon-400 hover:text-dorito-400 hover:bg-carbon-800 transition-colors"
                               title="Edit command template"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
@@ -1323,7 +1323,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             <button
                               type="button"
                               onClick={() => setEditingKey(null)}
-                              className="p-1.5 rounded-lg text-carbon-400 hover:text-white hover:bg-carbon-800 transition-colors"
+                              className="p-1.5 rounded-none text-carbon-400 hover:text-white hover:bg-carbon-800 transition-colors"
                               title="Cancel editing"
                             >
                               <X className="w-3.5 h-3.5" />
@@ -1342,7 +1342,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               rows={5}
                               value={editingCommand}
                               onChange={(e) => setEditingCommand(e.target.value)}
-                              className="w-full bg-black/90 border border-carbon-700 rounded-lg p-2.5 font-mono text-xs text-dorito-300 focus:outline-none focus:border-dorito-500 leading-relaxed"
+                              className="w-full bg-black/90 border border-carbon-700 rounded-none p-2.5 font-mono text-xs text-dorito-300 focus:outline-none focus:border-dorito-500 leading-relaxed"
                             />
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -1354,7 +1354,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 type="text"
                                 value={editingDesc}
                                 onChange={(e) => setEditingDesc(e.target.value)}
-                                className="w-full bg-black/70 border border-carbon-700 rounded-lg px-2.5 py-1.5 text-xs text-carbon-200 focus:outline-none focus:border-dorito-500 font-mono"
+                                className="w-full bg-black/70 border border-carbon-700 rounded-none px-2.5 py-1.5 text-xs text-carbon-200 focus:outline-none focus:border-dorito-500 font-mono"
                               />
                             </div>
                             <div>
@@ -1367,7 +1367,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 max={600}
                                 value={editingTimeout}
                                 onChange={(e) => setEditingTimeout(parseInt(e.target.value) || 10)}
-                                className="w-full bg-black/70 border border-carbon-700 rounded-lg px-2.5 py-1.5 text-xs text-carbon-200 focus:outline-none focus:border-dorito-500 font-mono"
+                                className="w-full bg-black/70 border border-carbon-700 rounded-none px-2.5 py-1.5 text-xs text-carbon-200 focus:outline-none focus:border-dorito-500 font-mono"
                               />
                             </div>
                           </div>
@@ -1375,7 +1375,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             <button
                               type="button"
                               onClick={() => setEditingKey(null)}
-                              className="px-3 py-1.5 rounded-lg border border-carbon-700 hover:bg-carbon-800 text-carbon-400 hover:text-white text-xs font-mono transition-colors"
+                              className="px-3 py-1.5 rounded-none border border-carbon-700 hover:bg-carbon-800 text-carbon-400 hover:text-white text-xs font-mono transition-colors"
                             >
                               Cancel
                             </button>
@@ -1383,7 +1383,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               type="button"
                               disabled={cmdSaving}
                               onClick={() => handleSaveCommand(cmd.key)}
-                              className="px-4 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-mono font-medium text-xs transition-colors disabled:opacity-50 shadow-md shadow-dorito-500/20"
+                              className="px-4 py-1.5 rounded-none bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-mono font-medium text-xs transition-colors disabled:opacity-50"
                             >
                               {cmdSaving ? 'Saving...' : 'Save Override'}
                             </button>
@@ -1394,7 +1394,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <p className="text-[11px] text-carbon-400 mb-2 leading-relaxed font-sans">
                             {cmd.description}
                           </p>
-                          <pre className="p-2.5 rounded-lg bg-black/80 border border-carbon-800 font-mono text-[11px] text-carbon-300 max-h-28 overflow-y-auto whitespace-pre-wrap select-all leading-relaxed">
+                          <pre className="p-2.5 rounded-none bg-black/80 border border-carbon-800 font-mono text-[11px] text-carbon-300 max-h-28 overflow-y-auto whitespace-pre-wrap select-all leading-relaxed">
                             {cmd.command}
                           </pre>
                         </>
