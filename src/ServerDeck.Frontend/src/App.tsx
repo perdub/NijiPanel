@@ -160,15 +160,18 @@ export const App: React.FC = () => {
 
   if (!authChecked) {
     return (
-      <div className="h-screen w-screen bg-black flex flex-col items-center justify-center text-carbon-400 gap-3">
-        <div className="relative mb-2 animate-bounce">
-          <Loader2 className="w-12 h-12 animate-spin text-dorito-500 absolute -top-1 -left-1 opacity-40" />
-          <span className="text-3xl select-none">🥁</span>
+      <div className="h-screen w-screen bg-black flex flex-col items-center justify-center text-carbon-400 gap-3 select-none">
+        <div className="relative flex items-center justify-center w-10 h-10">
+          <Loader2 className="w-8 h-8 animate-spin text-dorito-500" />
         </div>
-        <span className="text-sm font-semibold tracking-wider text-white font-sans">
-          Niji<span className="text-dorito-500">Panel</span>
-        </span>
-        <span className="text-xs font-mono text-carbon-400">The Drummer of Your Servers • Connecting...</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-bold tracking-tight text-white font-sans">
+            Niji<span className="text-dorito-500">Panel</span>
+          </span>
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-carbon-900 border border-carbon-800 text-carbon-400">
+            CONNECTING
+          </span>
+        </div>
       </div>
     );
   }

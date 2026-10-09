@@ -182,7 +182,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
       <div className="flex items-center justify-between border-b border-carbon-700/80 pb-3">
         <div className="flex items-center gap-2.5 flex-wrap">
           <TerminalIcon className="w-5 h-5 text-dorito-500" />
-          <h1 className="text-xl font-black text-white tracking-tight font-sans">SSH Terminal</h1>
+          <h1 className="text-lg font-bold text-white tracking-tight font-sans">SSH Terminal</h1>
           <span className="text-xs text-carbon-400 font-mono hidden sm:inline">
             {selectedHost.username}@{selectedHost.host}:{selectedHost.port}
           </span>

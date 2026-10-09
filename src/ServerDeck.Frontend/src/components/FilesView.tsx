@@ -500,7 +500,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-carbon-700/80 pb-3">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-black text-white tracking-tight">File Manager</h1>
+            <h1 className="text-lg font-bold text-white tracking-tight">File Manager</h1>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-semibold">
               SFTP EXPLORER
             </span>

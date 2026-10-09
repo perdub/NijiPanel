@@ -6,6 +6,17 @@ export default defineConfig({
   build: {
     outDir: '../ServerDeck.Backend/wwwroot',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-icons': ['lucide-react'],
+          'vendor-monaco': ['@monaco-editor/react'],
+          'vendor-terminal': ['@xterm/xterm', '@xterm/addon-fit'],
+        },
+      },
+    },
   },
   server: {
     port: 3000,

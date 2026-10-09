@@ -21,7 +21,9 @@ import {
   Gauge,
   TrendingUp,
   X,
-  Play
+  Play,
+  LayoutList,
+  LayoutGrid
 } from 'lucide-react';
 import { Host, HostStats, HostMetricsHistory, BenchmarkResult } from '../types';
 import { api } from '../api';
@@ -53,6 +55,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
   const [editHost, setEditHost] = useState<Host | null>(null);
   const [setupCommandModalOpen, setSetupCommandModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
   // Form states
   const [formName, setFormName] = useState('');
@@ -252,9 +255,26 @@ export const HostsView: React.FC<HostsViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center bg-carbon-900 border border-carbon-800 rounded-md p-0.5">
+            <button
+              onClick={() => setViewMode('table')}
+              className={'p-1.5 rounded text-xs transition-colors ' + (viewMode === 'table' ? 'bg-carbon-800 text-white' : 'text-carbon-400 hover:text-white')}
+              title="Dense Fleet Table"
+            >
+              <LayoutList className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className={'p-1.5 rounded text-xs transition-colors ' + (viewMode === 'grid' ? 'bg-carbon-800 text-white' : 'text-carbon-400 hover:text-white')}
+              title="Metrics Grid Cards"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
           <button
             onClick={() => setSetupCommandModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-xs font-mono font-medium text-dorito-400 transition-colors shadow-sm"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-carbon-900 hover:bg-carbon-800 border border-carbon-800 text-xs font-mono font-medium text-dorito-400 transition-colors"
           >
             <Shield className="w-3.5 h-3.5 text-dorito-500" />
             <span>Quick One-liner</span>
@@ -262,7 +282,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
 
           <button
             onClick={onRefresh}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-xs font-mono font-medium text-carbon-300 transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-carbon-900 hover:bg-carbon-800 border border-carbon-800 text-xs font-mono font-medium text-carbon-300 transition-colors"
             title="Refresh all host metrics"
           >
             <RefreshCw className="w-3.5 h-3.5 text-carbon-400" />
@@ -271,9 +291,9 @@ export const HostsView: React.FC<HostsViewProps> = ({
 
           <button
             onClick={handleOpenAdd}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-bold text-xs sm:text-sm shadow-md shadow-dorito-500/20 transition-all active:scale-[0.98]"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-dorito-500 hover:bg-dorito-600 text-black font-semibold text-xs transition-all active:scale-95 shadow-sm"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" />
             <span>Add Host</span>
           </button>
         </div>
@@ -306,7 +326,164 @@ export const HostsView: React.FC<HostsViewProps> = ({
         </div>
       )}
 
-      {/* Hosts Cards Grid: IBM Carbon Design System */}
+            {/* Hosts View: Dense Table or Grid */}
+      {viewMode === 'table' ? (
+        <div className="rounded-lg border border-carbon-800 bg-[#0a0a0a] overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs font-sans">
+              <thead className="bg-[#111111] border-b border-carbon-800 text-carbon-400 font-mono text-[11px] uppercase tracking-wider">
+                <tr>
+                  <th className="py-2.5 px-3 font-medium">Status & Node</th>
+                  <th className="py-2.5 px-3 font-medium">Endpoint</th>
+                  <th className="py-2.5 px-3 font-medium">OS / Uptime</th>
+                  <th className="py-2.5 px-3 font-medium">CPU</th>
+                  <th className="py-2.5 px-3 font-medium">RAM</th>
+                  <th className="py-2.5 px-3 font-medium">Disk</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-carbon-850/60 font-mono">
+                {hosts.map((host) => {
+                  const stats = statsMap[host.id];
+                  const isLoading = loadingStats[host.id];
+                  const isOnline = stats?.isOnline ?? false;
+
+                  return (
+                    <tr
+                      key={host.id}
+                      className="hover:bg-[#141414] transition-colors group cursor-pointer"
+                      onClick={() => onSelectHost(host.id)}
+                    >
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={'w-2 h-2 rounded-full shrink-0 ' + (isOnline ? 'bg-emerald-500' : 'bg-rose-500')}
+                          />
+                          <span className="font-semibold text-white font-sans text-xs tracking-tight">
+                            {host.name}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 text-carbon-300 text-[11px]">
+                        {host.username}@{host.host}:{host.port}
+                      </td>
+                      <td className="py-2.5 px-3 text-carbon-400 text-[11px]">
+                        <span>{stats?.osInfo || 'Linux'}</span>
+                        {stats?.uptime && <span className="text-carbon-500 ml-1.5">• {stats.uptime}</span>}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-1.5 bg-carbon-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-dorito-500"
+                              style={{ width: stats?.cpuUsage || '0%' }}
+                            />
+                          </div>
+                          <span className="text-dorito-400 text-[11px] font-medium w-8">
+                            {stats?.cpuUsage || '0%'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-1.5 bg-carbon-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-amber-500"
+                              style={{ width: `${Math.min(100, Math.max(0, stats?.memoryPercent ?? 0))}%` }}
+                            />
+                          </div>
+                          <span className="text-amber-400 text-[11px] font-medium truncate max-w-[80px]">
+                            {stats?.memoryUsage?.split('/')[0] || '0 GB'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-1.5 bg-carbon-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-orange-500"
+                              style={{ width: `${Math.min(100, Math.max(0, stats?.diskPercent ?? 0))}%` }}
+                            />
+                          </div>
+                          <span className="text-orange-400 text-[11px] font-medium w-8">
+                            {stats?.diskPercent ? `${stats.diskPercent}%` : '0%'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => {
+                              onSelectHost(host.id);
+                              onOpenTab('terminal', host.id);
+                            }}
+                            className="p-1 rounded text-carbon-400 hover:text-emerald-400 hover:bg-carbon-800"
+                            title="Interactive SSH Terminal"
+                          >
+                            <Terminal className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              onSelectHost(host.id);
+                              onOpenTab('docker', host.id);
+                            }}
+                            className="p-1 rounded text-carbon-400 hover:text-dorito-400 hover:bg-carbon-800"
+                            title="Docker Containers"
+                          >
+                            <Layers className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              onSelectHost(host.id);
+                              onOpenTab('services', host.id);
+                            }}
+                            className="p-1 rounded text-carbon-400 hover:text-cyan-400 hover:bg-carbon-800"
+                            title="Services & Systemd"
+                          >
+                            <Cpu className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              onSelectHost(host.id);
+                              onOpenTab('files', host.id);
+                            }}
+                            className="p-1 rounded text-carbon-400 hover:text-amber-400 hover:bg-carbon-800"
+                            title="File Manager"
+                          >
+                            <FolderTree className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleRandomizePort(host)}
+                            disabled={hardeningHostId === host.id}
+                            className="p-1 rounded text-carbon-400 hover:text-dorito-400 hover:bg-carbon-800 disabled:opacity-50"
+                            title="Randomize SSH port"
+                          >
+                            <Shield className={'w-3.5 h-3.5 ' + (hardeningHostId === host.id ? 'animate-spin text-dorito-500' : '')} />
+                          </button>
+                          <button
+                            onClick={() => handleOpenEdit(host)}
+                            className="p-1 rounded text-carbon-400 hover:text-dorito-400 hover:bg-carbon-800"
+                            title="Edit host parameters"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteHost(host)}
+                            className="p-1 rounded text-carbon-400 hover:text-rose-400 hover:bg-carbon-800"
+                            title="Delete host"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {hosts.map((host) => {
           const stats = statsMap[host.id];
@@ -583,6 +760,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
           );
         })}
       </div>
+      )}
 
       {/* Add / Edit Host Modal */}
       {addModalOpen && (
@@ -864,7 +1042,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
             <div className="p-4 rounded-xl bg-carbon-850 border border-carbon-700 mb-4 flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-mono text-carbon-400 uppercase tracking-wider">Overall Health Score</span>
-                <div className="text-3xl font-black text-white mt-0.5 tracking-tight flex items-baseline gap-1 font-mono">
+                <div className="text-2xl font-bold text-white mt-0.5 tracking-tight flex items-baseline gap-1 font-mono">
                   <span className={benchmarkResult.score >= 70 ? 'text-emerald-400' : 'text-amber-400'}>
                     {benchmarkResult.score}
                   </span>

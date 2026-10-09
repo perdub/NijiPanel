@@ -123,7 +123,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isSetup, onSuccess }) => {
             <span>STARRY BACKSTAGE GATEWAY</span>
           </div>
 
-          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
             {!isSetup ? 'Initial Setup' : 'Sign in to NijiPanel'}
           </h2>
           <p className="text-xs text-dorito-400 font-mono mt-0.5 font-medium">

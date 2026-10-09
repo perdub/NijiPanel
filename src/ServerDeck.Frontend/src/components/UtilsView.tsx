@@ -108,7 +108,7 @@ export const UtilsView: React.FC<UtilsViewProps> = ({ masterPublicKey }) => {
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="border-b border-carbon-700/80 pb-4">
         <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-black text-white tracking-tight">Utilities & Generators</h1>
+          <h1 className="text-lg font-bold text-white tracking-tight">Utilities & Generators</h1>
           <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-semibold">
             KESSOKU TOOLKIT
           </span>

@@ -768,7 +768,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   disabled={testingAlert}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-carbon-800 hover:bg-carbon-700 text-dorito-400 font-semibold border border-carbon-700 transition-colors disabled:opacity-40"
                 >
-                  <Send className={`w-3.5 h-3.5 ${testingAlert ? 'animate-bounce' : ''}`} />
+                  <Send className={`w-3.5 h-3.5 ${testingAlert ? 'animate-pulse' : ''}`} />
                   <span>{testingAlert ? 'Testing...' : 'Test Alert'}</span>
                 </button>
 

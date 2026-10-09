@@ -188,7 +188,7 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-carbon-700/80 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-black text-white tracking-tight">Containers</h1>
+            <h1 className="text-lg font-bold text-white tracking-tight">Containers</h1>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-dorito-500/10 border border-dorito-500/30 text-dorito-400 font-semibold">
               LIVE ENGINE
             </span>
@@ -284,7 +284,7 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
             return (
               <div
                 key={c.id}
-                className={`rounded-xl bg-carbon-900 border p-4 shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                className={`rounded-md bg-[#0c0c0c] border p-3.5 shadow-xs transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
                   isOom || isCrashed
                     ? 'border-rose-500/50 hover:border-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.08)]'
                     : 'border-carbon-700 hover:border-dorito-500/50'
@@ -295,7 +295,7 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
                   <div className="flex items-center gap-2.5 flex-wrap mb-1">
                     {/* Status / Crash / OOM badges */}
                     {isOom ? (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-black uppercase tracking-wider bg-rose-950/90 text-rose-300 border border-rose-500/80 flex items-center gap-1 shadow-sm animate-pulse">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-rose-950/90 text-rose-300 border border-rose-500/80 flex items-center gap-1 shadow-sm animate-pulse">
                         <Flame className="w-3 h-3 text-rose-400" />
                         <span>OOM-KILLED</span>
                       </span>
@@ -306,7 +306,7 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
                       </span>
                     ) : (
                       <span
-                        className={`px-2 py-0.5 rounded-none text-[10px] font-mono font-bold uppercase tracking-wider border ${
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider border ${
                           isRunning
                             ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                             : 'bg-carbon-800 text-carbon-400 border-carbon-700'
@@ -317,7 +317,7 @@ export const DockerView: React.FC<DockerViewProps> = ({ selectedHost }) => {
                     )}
 
                     <h3 className="text-sm sm:text-base font-bold text-white truncate font-sans">{c.names}</h3>
-                    <span className="text-[11px] font-mono text-carbon-400 bg-carbon-850 border border-carbon-700 px-2 py-0.5 rounded-none">
+                    <span className="text-[11px] font-mono text-carbon-400 bg-carbon-850 border border-carbon-700 px-2 py-0.5 rounded">
                       {c.id.substring(0, 12)}
                     </span>
 

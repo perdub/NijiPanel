@@ -411,14 +411,14 @@ export const FirewallView: React.FC<FirewallViewProps> = ({ selectedHost }) => {
 
             <div className="p-4 rounded-xl bg-carbon-900 border border-carbon-700">
               <span className="text-[10px] font-mono text-carbon-400 uppercase">Currently Banned</span>
-              <div className="text-xl font-black text-rose-400 mt-0.5 font-mono">
+              <div className="text-xl font-bold text-rose-400 mt-0.5 font-mono">
                 {fail2banStatus?.currentlyBanned ?? 0}
               </div>
             </div>
 
             <div className="p-4 rounded-xl bg-carbon-900 border border-carbon-700">
               <span className="text-[10px] font-mono text-carbon-400 uppercase">Total Interceptions</span>
-              <div className="text-xl font-black text-dorito-400 mt-0.5 font-mono">
+              <div className="text-xl font-bold text-dorito-400 mt-0.5 font-mono">
                 {fail2banStatus?.totalBanned ?? 0}
               </div>
             </div>

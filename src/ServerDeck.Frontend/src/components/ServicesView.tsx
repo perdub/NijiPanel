@@ -379,7 +379,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               <Package className="w-3.5 h-3.5" />
               <span>OS Updates</span>
               {pkgResult && pkgResult.availableUpdatesCount > 0 && (
-                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-carbon-950 font-black">
+                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-carbon-950 font-bold">
                   {pkgResult.availableUpdatesCount}
                 </span>
               )}
