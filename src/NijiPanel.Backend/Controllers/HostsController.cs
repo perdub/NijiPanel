@@ -17,6 +17,7 @@ public class HostsController : ControllerBase
     private readonly ISettingsService _settingsService;
     private readonly INotificationService _notificationService;
     private readonly IHostNetworkService _networkService;
+    private readonly IConnectionLogService _logService;
     private readonly ILogger<HostsController> _logger;
 
     public HostsController(
@@ -27,6 +28,7 @@ public class HostsController : ControllerBase
         ISettingsService settingsService,
         INotificationService notificationService,
         IHostNetworkService networkService,
+        IConnectionLogService logService,
         ILogger<HostsController> logger)
     {
         _hostService = hostService;
@@ -36,6 +38,7 @@ public class HostsController : ControllerBase
         _settingsService = settingsService;
         _notificationService = notificationService;
         _networkService = networkService;
+        _logService = logService;
         _logger = logger;
     }
 
@@ -128,6 +131,42 @@ public class HostsController : ControllerBase
 
         var (success, error) = await _sshManager.TestConnectionAsync(host);
         return Ok(new { success, error });
+    }
+
+    [HttpPost("{id}/diagnose")]
+    public async Task<ActionResult<ConnectionDiagnosticResult>> DiagnoseConnection(string id)
+    {
+        var host = await _hostService.GetHostEntityAsync(id);
+        if (host == null) return NotFound(new { error = "Host not found" });
+
+        var result = await _sshManager.DiagnoseConnectionAsync(host);
+        return Ok(result);
+    }
+
+    [HttpGet("{id}/logs")]
+    public ActionResult<List<ConnectionLogEntry>> GetHostLogs(string id, [FromQuery] int limit = 100)
+    {
+        return Ok(_logService.GetLogs(id, limit));
+    }
+
+    [HttpDelete("{id}/logs")]
+    public ActionResult ClearHostLogs(string id)
+    {
+        _logService.ClearLogs(id);
+        return NoContent();
+    }
+
+    [HttpGet("logs")]
+    public ActionResult<List<ConnectionLogEntry>> GetAllConnectionLogs([FromQuery] int limit = 100)
+    {
+        return Ok(_logService.GetLogs(null, limit));
+    }
+
+    [HttpDelete("logs")]
+    public ActionResult ClearAllConnectionLogs()
+    {
+        _logService.ClearLogs(null);
+        return NoContent();
     }
 
     [HttpGet("{id}/stats")]

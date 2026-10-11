@@ -45,7 +45,9 @@ import {
   RandomizePortResult,
   HostNetworkInfo,
   CommandTemplate,
-  UpdateCommandTemplateRequest
+  UpdateCommandTemplateRequest,
+  ConnectionDiagnosticResult,
+  ConnectionLogEntry
 } from './types';
 
 const API_BASE = '/api';
@@ -154,6 +156,12 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+    diagnose: (id: string) =>
+      request<ConnectionDiagnosticResult>(`/hosts/${id}/diagnose`, { method: 'POST' }),
+    getLogs: (id?: string, limit = 100) =>
+      request<ConnectionLogEntry[]>(id ? `/hosts/${id}/logs?limit=${limit}` : `/hosts/logs?limit=${limit}`),
+    clearLogs: (id?: string) =>
+      request<void>(id ? `/hosts/${id}/logs` : '/hosts/logs', { method: 'DELETE' }),
   },
   docker: {
     containers: (hostId: string) => request<Container[]>(`/hosts/${hostId}/docker/containers`),

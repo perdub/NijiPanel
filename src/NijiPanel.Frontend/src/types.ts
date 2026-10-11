@@ -32,6 +32,35 @@ export interface HostStats {
   error?: string;
 }
 
+export interface DiagnosticStep {
+  name: string;
+  status: 'passed' | 'failed' | 'warning' | 'skipped';
+  message: string;
+  durationMs: number;
+}
+
+export interface ConnectionDiagnosticResult {
+  success: boolean;
+  latencyMs: number;
+  hostAddress?: string;
+  steps: DiagnosticStep[];
+  serverBanner?: string;
+  error?: string;
+  suggestion?: string;
+  timestamp: string;
+}
+
+export interface ConnectionLogEntry {
+  id: string;
+  hostId: string;
+  hostName: string;
+  level: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS';
+  event: string;
+  message: string;
+  details?: string;
+  timestamp: string;
+}
+
 export interface Container {
   id: string;
   names: string;

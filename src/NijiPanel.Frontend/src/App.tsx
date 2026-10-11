@@ -197,9 +197,11 @@ export const App: React.FC = () => {
   };
 
   const handleHostStatsUpdated = useCallback((hostId: string, isOnline: boolean) => {
-    setHosts((prev) =>
-      prev.map((item) => (item.id === hostId ? { ...item, isOnline } : item))
-    );
+    setHosts((prev) => {
+      const existing = prev.find((item) => item.id === hostId);
+      if (!existing || existing.isOnline === isOnline) return prev;
+      return prev.map((item) => (item.id === hostId ? { ...item, isOnline } : item));
+    });
   }, []);
 
   const refreshHostStatuses = useCallback(async (targetHosts: Host[]) => {
@@ -208,13 +210,17 @@ export const App: React.FC = () => {
       targetHosts.map(async (h) => {
         try {
           const stats = await api.hosts.stats(h.id);
-          setHosts((prev) =>
-            prev.map((item) => (item.id === h.id ? { ...item, isOnline: stats.isOnline } : item))
-          );
+          setHosts((prev) => {
+            const existing = prev.find((item) => item.id === h.id);
+            if (!existing || existing.isOnline === stats.isOnline) return prev;
+            return prev.map((item) => (item.id === h.id ? { ...item, isOnline: stats.isOnline } : item));
+          });
         } catch {
-          setHosts((prev) =>
-            prev.map((item) => (item.id === h.id ? { ...item, isOnline: false } : item))
-          );
+          setHosts((prev) => {
+            const existing = prev.find((item) => item.id === h.id);
+            if (!existing || existing.isOnline === false) return prev;
+            return prev.map((item) => (item.id === h.id ? { ...item, isOnline: false } : item));
+          });
         }
       })
     );
@@ -228,7 +234,6 @@ export const App: React.FC = () => {
       ]);
       setHosts(hostsData);
       setMasterKey(keyData);
-      refreshHostStatuses(hostsData);
 
       if (hostsData.length > 0) {
         if (selectedHostId && hostsData.some((h) => h.id === selectedHostId)) {

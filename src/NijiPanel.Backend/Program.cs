@@ -16,6 +16,7 @@ builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ICacheService, CacheService>();
 builder.Services.AddSingleton<DatabaseContext>();
 builder.Services.AddSingleton<IEncryptionService, EncryptionService>();
+builder.Services.AddSingleton<IConnectionLogService, ConnectionLogService>();
 builder.Services.AddSingleton<IAuthService, AuthService>();
 builder.Services.AddSingleton<ISettingsService, SettingsService>();
 builder.Services.AddSingleton<ISshConnectionManager, SshConnectionManager>();

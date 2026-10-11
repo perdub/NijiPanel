@@ -1,4 +1,7 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using Renci.SshNet;
 using Renci.SshNet.Common;
@@ -14,6 +17,7 @@ public interface ISshConnectionManager
     SftpClient GetSftpClient(HostEntity host);
     Task<(int ExitCode, string Output, string Error)> RunCommandAsync(HostEntity host, string command, int timeoutSeconds = 30);
     Task<(bool Success, string? Error)> TestConnectionAsync(HostEntity host);
+    Task<ConnectionDiagnosticResult> DiagnoseConnectionAsync(HostEntity host);
     Task<HostSystemStats> GetHostStatsAsync(HostEntity host);
     void InvalidateHost(string hostId);
     bool IsConnected(string hostId);
@@ -44,19 +48,22 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
     private readonly ConcurrentDictionary<string, SshClient> _sshClients = new();
     private readonly ConcurrentDictionary<string, SftpClient> _sftpClients = new();
     private readonly ILogger<SshConnectionManager> _logger;
+    private readonly IConnectionLogService _logService;
 
     public SshConnectionManager(
         ISettingsService settingsService,
         IEncryptionService encryptionService,
         ICommandRegistry cmdRegistry,
         ICacheService cacheService,
-        ILogger<SshConnectionManager> logger)
+        ILogger<SshConnectionManager> logger,
+        IConnectionLogService logService)
     {
         _settingsService = settingsService;
         _encryptionService = encryptionService;
         _cmdRegistry = cmdRegistry;
         _cacheService = cacheService;
         _logger = logger;
+        _logService = logService;
     }
 
     public Renci.SshNet.ConnectionInfo CreateConnectionInfo(HostEntity host)
@@ -127,21 +134,39 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
             _sshClients.TryRemove(host.Id, out _);
         }
 
-        var connInfo = CreateConnectionInfo(host);
-        var client = new SshClient(connInfo);
-        client.KeepAliveInterval = TimeSpan.FromSeconds(15);
-        client.Connect();
-        _sshClients[host.Id] = client;
-        return client;
+        try
+        {
+            var connInfo = CreateConnectionInfo(host);
+            var client = new SshClient(connInfo);
+            client.KeepAliveInterval = TimeSpan.FromSeconds(15);
+            client.Connect();
+            _sshClients[host.Id] = client;
+            _logService.Log(host.Id, host.Name, "SUCCESS", "SSH_AUTH", $"SSH connected to {host.Host}:{host.Port} as {host.Username}");
+            return client;
+        }
+        catch (Exception ex)
+        {
+            _logService.Log(host.Id, host.Name, "ERROR", "SSH_CONNECT", $"Connection failed to {host.Host}:{host.Port} - {ex.Message}");
+            throw;
+        }
     }
 
     public SshClient CreateDedicatedSshClient(HostEntity host)
     {
-        var connInfo = CreateConnectionInfo(host);
-        var client = new SshClient(connInfo);
-        client.KeepAliveInterval = TimeSpan.FromSeconds(15);
-        client.Connect();
-        return client;
+        try
+        {
+            var connInfo = CreateConnectionInfo(host);
+            var client = new SshClient(connInfo);
+            client.KeepAliveInterval = TimeSpan.FromSeconds(15);
+            client.Connect();
+            _logService.Log(host.Id, host.Name, "INFO", "SSH_AUTH", $"Dedicated SSH session connected to {host.Host}:{host.Port}");
+            return client;
+        }
+        catch (Exception ex)
+        {
+            _logService.Log(host.Id, host.Name, "ERROR", "SSH_CONNECT", $"Dedicated session failed to {host.Host}:{host.Port} - {ex.Message}");
+            throw;
+        }
     }
 
     public SftpClient GetSftpClient(HostEntity host)
@@ -153,44 +178,239 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
             _sftpClients.TryRemove(host.Id, out _);
         }
 
-        var connInfo = CreateConnectionInfo(host);
-        var client = new SftpClient(connInfo);
-        client.KeepAliveInterval = TimeSpan.FromSeconds(15);
-        client.Connect();
-        _sftpClients[host.Id] = client;
-        return client;
+        try
+        {
+            var connInfo = CreateConnectionInfo(host);
+            var client = new SftpClient(connInfo);
+            client.KeepAliveInterval = TimeSpan.FromSeconds(15);
+            client.Connect();
+            _sftpClients[host.Id] = client;
+            _logService.Log(host.Id, host.Name, "INFO", "SFTP_CONNECT", $"SFTP subsystem connected ({host.Host}:{host.Port})");
+            return client;
+        }
+        catch (Exception ex)
+        {
+            _logService.Log(host.Id, host.Name, "ERROR", "SFTP_CONNECT", $"SFTP subsystem connection failed - {ex.Message}");
+            throw;
+        }
     }
 
     public async Task<(int ExitCode, string Output, string Error)> RunCommandAsync(HostEntity host, string command, int timeoutSeconds = 30)
     {
         return await Task.Run(() =>
         {
-            var client = GetSshClient(host);
-            using var cmd = client.CreateCommand(command);
-            cmd.CommandTimeout = TimeSpan.FromSeconds(timeoutSeconds);
-            var output = cmd.Execute();
-            return (cmd.ExitStatus ?? 0, output ?? "", cmd.Error ?? "");
+            try
+            {
+                var client = GetSshClient(host);
+                using var cmd = client.CreateCommand(command);
+                cmd.CommandTimeout = TimeSpan.FromSeconds(timeoutSeconds);
+                var output = cmd.Execute();
+                return (cmd.ExitStatus ?? 0, output ?? "", cmd.Error ?? "");
+            }
+            catch (Exception ex)
+            {
+                _logService.Log(host.Id, host.Name, "ERROR", "COMMAND_EXEC", $"Command execution failed: {ex.Message}");
+                throw;
+            }
         });
     }
 
     public async Task<(bool Success, string? Error)> TestConnectionAsync(HostEntity host)
     {
-        return await Task.Run(() =>
+        return await Task.Run<(bool Success, string? Error)>(() =>
         {
             try
             {
+                _logService.Log(host.Id, host.Name, "INFO", "TEST_CONNECT", $"Testing connection to {host.Host}:{host.Port} (User: {host.Username}, Auth: {host.AuthType})");
                 var connInfo = CreateConnectionInfo(host);
                 using var client = new SshClient(connInfo);
                 client.Connect();
                 var isConnected = client.IsConnected;
                 client.Disconnect();
-                return (isConnected, isConnected ? null : "Failed to connect");
+                if (isConnected)
+                {
+                    _logService.Log(host.Id, host.Name, "SUCCESS", "TEST_CONNECT", "Connection test succeeded");
+                    return (true, null);
+                }
+                _logService.Log(host.Id, host.Name, "ERROR", "TEST_CONNECT", "Client disconnected without error");
+                return (false, "Failed to connect");
             }
             catch (Exception ex)
             {
+                _logService.Log(host.Id, host.Name, "ERROR", "TEST_CONNECT", $"Connection test error: {ex.Message}");
                 return (false, ex.Message);
             }
         });
+    }
+
+    public async Task<ConnectionDiagnosticResult> DiagnoseConnectionAsync(HostEntity host)
+    {
+        var swTotal = Stopwatch.StartNew();
+        var steps = new List<DiagnosticStep>();
+        string? serverBanner = null;
+        string? hostAddress = null;
+
+        _logService.Log(host.Id, host.Name, "INFO", "DIAGNOSE_START", $"Starting comprehensive connection diagnostics for {host.Name} ({host.Host}:{host.Port})");
+
+        // Step 1: DNS & IP Resolution
+        var swStep = Stopwatch.StartNew();
+        try
+        {
+            var ips = await Dns.GetHostAddressesAsync(host.Host);
+            swStep.Stop();
+            if (ips == null || ips.Length == 0)
+            {
+                steps.Add(new DiagnosticStep("DNS Resolution", "failed", $"Could not resolve hostname '{host.Host}'", swStep.ElapsedMilliseconds));
+                _logService.Log(host.Id, host.Name, "ERROR", "DNS_RESOLVE", $"DNS lookup returned 0 addresses for '{host.Host}'");
+                return new ConnectionDiagnosticResult(false, swTotal.ElapsedMilliseconds, null, steps, null, $"DNS lookup failed for '{host.Host}'", "Check hostname spelling or nameserver settings.", DateTime.UtcNow);
+            }
+            hostAddress = ips[0].ToString();
+            steps.Add(new DiagnosticStep("DNS Resolution", "passed", $"Resolved '{host.Host}' to {hostAddress}", swStep.ElapsedMilliseconds));
+            _logService.Log(host.Id, host.Name, "INFO", "DNS_RESOLVE", $"Resolved '{host.Host}' to {hostAddress}");
+        }
+        catch (Exception ex)
+        {
+            swStep.Stop();
+            steps.Add(new DiagnosticStep("DNS Resolution", "failed", $"DNS resolution error: {ex.Message}", swStep.ElapsedMilliseconds));
+            _logService.Log(host.Id, host.Name, "ERROR", "DNS_RESOLVE", ex.Message);
+            return new ConnectionDiagnosticResult(false, swTotal.ElapsedMilliseconds, null, steps, null, $"DNS lookup error: {ex.Message}", "Verify server hostname or IP address in Host settings.", DateTime.UtcNow);
+        }
+
+        // Step 2: TCP Socket Reachability
+        swStep.Restart();
+        try
+        {
+            using var tcp = new TcpClient();
+            var connectTask = tcp.ConnectAsync(host.Host, host.Port);
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(6));
+            var completed = await Task.WhenAny(connectTask, timeoutTask);
+            swStep.Stop();
+
+            if (completed == timeoutTask || !tcp.Connected)
+            {
+                steps.Add(new DiagnosticStep("TCP Socket Reachability", "failed", $"Connection to {host.Host}:{host.Port} timed out (6s)", swStep.ElapsedMilliseconds));
+                _logService.Log(host.Id, host.Name, "ERROR", "TCP_SOCKET", $"Connection to {host.Host}:{host.Port} timed out");
+                return new ConnectionDiagnosticResult(false, swTotal.ElapsedMilliseconds, hostAddress, steps, null, $"TCP port {host.Port} is unreachable or timed out", $"Check if SSH server (sshd) is running and port {host.Port} is allowed in firewall (ufw/iptables/cloud security group).", DateTime.UtcNow);
+            }
+            steps.Add(new DiagnosticStep("TCP Socket Reachability", "passed", $"Connected to {host.Host}:{host.Port} in {swStep.ElapsedMilliseconds} ms", swStep.ElapsedMilliseconds));
+            _logService.Log(host.Id, host.Name, "INFO", "TCP_SOCKET", $"Port {host.Port} open and reachable ({swStep.ElapsedMilliseconds} ms)");
+        }
+        catch (Exception ex)
+        {
+            swStep.Stop();
+            steps.Add(new DiagnosticStep("TCP Socket Reachability", "failed", $"TCP socket connection refused: {ex.Message}", swStep.ElapsedMilliseconds));
+            _logService.Log(host.Id, host.Name, "ERROR", "TCP_SOCKET", ex.Message);
+            return new ConnectionDiagnosticResult(false, swTotal.ElapsedMilliseconds, hostAddress, steps, null, ex.Message, $"Connection refused on port {host.Port}. Ensure SSH daemon is active on remote server.", DateTime.UtcNow);
+        }
+
+        // Step 3: SSH Configuration Validation
+        swStep.Restart();
+        Renci.SshNet.ConnectionInfo connInfo;
+        try
+        {
+            connInfo = CreateConnectionInfo(host);
+            connInfo.Timeout = TimeSpan.FromSeconds(10);
+            swStep.Stop();
+            steps.Add(new DiagnosticStep("SSH Configuration", "passed", $"Auth strategy configured: {host.AuthType} (User: {host.Username})", swStep.ElapsedMilliseconds));
+        }
+        catch (Exception ex)
+        {
+            swStep.Stop();
+            steps.Add(new DiagnosticStep("SSH Configuration", "failed", $"Invalid credentials or key syntax: {ex.Message}", swStep.ElapsedMilliseconds));
+            _logService.Log(host.Id, host.Name, "ERROR", "SSH_CONFIG", ex.Message);
+            return new ConnectionDiagnosticResult(false, swTotal.ElapsedMilliseconds, hostAddress, steps, null, ex.Message, "Verify that private key / password format is correct.", DateTime.UtcNow);
+        }
+
+        // Step 4: SSH Authentication
+        swStep.Restart();
+        SshClient? client = null;
+        try
+        {
+            client = new SshClient(connInfo);
+            client.Connect();
+            serverBanner = client.ConnectionInfo.ServerVersion;
+            swStep.Stop();
+            steps.Add(new DiagnosticStep("SSH Authentication", "passed", $"Authenticated successfully as '{host.Username}'. Remote banner: {serverBanner}", swStep.ElapsedMilliseconds));
+            _logService.Log(host.Id, host.Name, "SUCCESS", "SSH_AUTH", $"Authenticated successfully as '{host.Username}' ({serverBanner})");
+        }
+        catch (Exception ex)
+        {
+            swStep.Stop();
+            steps.Add(new DiagnosticStep("SSH Authentication", "failed", $"Authentication rejected: {ex.Message}", swStep.ElapsedMilliseconds));
+            _logService.Log(host.Id, host.Name, "ERROR", "SSH_AUTH", ex.Message);
+
+            var hint = host.AuthType switch
+            {
+                "global_key" => "Ensure NijiPanel Master Public Key is appended to ~/.ssh/authorized_keys on the host. Use 'Quick One-liner' in Hosts menu.",
+                "key" => "Check that private key is valid, matches remote ~/.ssh/authorized_keys, and passphrase (if set) is correct.",
+                "password" => "Verify username & password. Ensure sshd_config on the host allows password authentication (PasswordAuthentication yes).",
+                _ => "Check user credentials."
+            };
+            return new ConnectionDiagnosticResult(false, swTotal.ElapsedMilliseconds, hostAddress, steps, serverBanner, ex.Message, hint, DateTime.UtcNow);
+        }
+
+        // Step 5: Shell & Command Execution Probe
+        swStep.Restart();
+        try
+        {
+            using var cmd = client.CreateCommand("echo '__nijipanel_diag_ok__'");
+            cmd.CommandTimeout = TimeSpan.FromSeconds(5);
+            var res = cmd.Execute();
+            swStep.Stop();
+            if (cmd.ExitStatus == 0 && res.Contains("__nijipanel_diag_ok__"))
+            {
+                steps.Add(new DiagnosticStep("Shell Execution", "passed", "Host executed command successfully", swStep.ElapsedMilliseconds));
+            }
+            else
+            {
+                steps.Add(new DiagnosticStep("Shell Execution", "warning", $"Command exited with code {cmd.ExitStatus}: {cmd.Error}", swStep.ElapsedMilliseconds));
+            }
+        }
+        catch (Exception ex)
+        {
+            swStep.Stop();
+            steps.Add(new DiagnosticStep("Shell Execution", "warning", $"Command probe failed: {ex.Message}", swStep.ElapsedMilliseconds));
+        }
+
+        // Step 6: Terminal & Session Prerequisite Check
+        swStep.Restart();
+        try
+        {
+            using var cmd = client.CreateCommand("tmux -V 2>/dev/null || echo 'no_tmux'");
+            cmd.CommandTimeout = TimeSpan.FromSeconds(4);
+            var tmuxOut = cmd.Execute()?.Trim() ?? "";
+            swStep.Stop();
+            if (tmuxOut.Contains("tmux"))
+            {
+                steps.Add(new DiagnosticStep("Terminal Session Persistence", "passed", $"Found {tmuxOut} (persistent tmux sessions enabled)", swStep.ElapsedMilliseconds));
+            }
+            else
+            {
+                steps.Add(new DiagnosticStep("Terminal Session Persistence", "warning", "tmux is not installed on host. Install tmux for persistent background terminal tabs.", swStep.ElapsedMilliseconds));
+            }
+        }
+        catch
+        {
+            steps.Add(new DiagnosticStep("Terminal Session Persistence", "skipped", "Could not check tmux version", swStep.ElapsedMilliseconds));
+        }
+        finally
+        {
+            try { client.Disconnect(); client.Dispose(); } catch { }
+        }
+
+        swTotal.Stop();
+        _logService.Log(host.Id, host.Name, "SUCCESS", "DIAGNOSE_COMPLETE", $"Diagnostics passed in {swTotal.ElapsedMilliseconds} ms");
+
+        return new ConnectionDiagnosticResult(
+            true,
+            swTotal.ElapsedMilliseconds,
+            hostAddress,
+            steps,
+            serverBanner,
+            null,
+            "All connection tests passed. Host is ready for monitoring, terminal, and management.",
+            DateTime.UtcNow
+        );
     }
 
     public async Task<HostSystemStats> GetHostStatsAsync(HostEntity host)

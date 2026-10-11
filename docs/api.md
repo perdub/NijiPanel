@@ -49,6 +49,11 @@ Authorization: Bearer <your_jwt_token>
 | `POST` | `/api/hosts/{id}/randomize-port` | Автоматическая миграция демона SSH на высокий порт (20000–59000) |
 | `GET` | `/api/hosts/{id}/network` | Получение топологии сети, интерфейсов, CIDR и GeoIP |
 | `POST` | `/api/hosts/inspect-network` | Предварительный сетевой аудит параметров хоста до добавления |
+| `POST` | `/api/hosts/{id}/diagnose` | Запуск пошаговой интерактивной диагностики SSH-подключения (DNS, TCP, Banner, Auth, Shell, tmux) |
+| `GET` | `/api/hosts/{id}/logs` | Получение недавних журналов попыток подключения и ошибок SSH для хоста |
+| `DELETE`| `/api/hosts/{id}/logs` | Очистка буфера логов подключения конкретного хоста |
+| `GET` | `/api/hosts/logs` | Получение агрегированных логов подключения по всему флоту |
+| `DELETE`| `/api/hosts/logs` | Полная очистка логов подключения панели |
 
 ---
 

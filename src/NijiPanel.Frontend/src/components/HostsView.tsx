@@ -32,6 +32,7 @@ import { api } from '../api';
 import { DoritoLogo } from './DoritoLogo';
 import { SparklineChart } from './SparklineChart';
 import { NetworkInspectorModal } from './NetworkInspectorModal';
+import { ConnectionDiagnosticsModal } from './ConnectionDiagnosticsModal';
 
 interface HostsViewProps {
   hosts: Host[];
@@ -46,6 +47,7 @@ interface HostsViewProps {
 // Module-level cache for instantaneous view switching (stale-while-revalidate)
 const cachedStatsMap: Record<string, HostStats> = {};
 const cachedMetricsMap: Record<string, HostMetricsHistory> = {};
+const inFlightStatsMap: Record<string, boolean> = {};
 
 export const HostsView: React.FC<HostsViewProps> = ({
   hosts,
@@ -88,6 +90,10 @@ export const HostsView: React.FC<HostsViewProps> = ({
   const [networkInspectorHost, setNetworkInspectorHost] = useState<{ id?: string; name: string; host: string } | null>(null);
   const [formTestingNetwork, setFormTestingNetwork] = useState(false);
   const [formNetworkData, setFormNetworkData] = useState<HostNetworkInfo | null>(null);
+
+  // Connection Diagnostics & Logs states
+  const [diagModalOpen, setDiagModalOpen] = useState(false);
+  const [diagHost, setDiagHost] = useState<Host | null>(null);
 
   const handleInspectFormNetwork = async () => {
     if (!formHost.trim()) {
@@ -135,6 +141,9 @@ export const HostsView: React.FC<HostsViewProps> = ({
   };
 
   const fetchHostStats = async (hostId: string) => {
+    if (inFlightStatsMap[hostId]) return;
+    inFlightStatsMap[hostId] = true;
+
     // Only show full loading spinner if we don't already have cached stats
     if (!cachedStatsMap[hostId]) {
       setLoadingStats((prev) => ({ ...prev, [hostId]: true }));
@@ -160,6 +169,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
       }
       onHostStatsUpdated?.(hostId, false);
     } finally {
+      inFlightStatsMap[hostId] = false;
       setLoadingStats((prev) => ({ ...prev, [hostId]: false }));
     }
   };
@@ -177,11 +187,12 @@ export const HostsView: React.FC<HostsViewProps> = ({
     }
   };
 
+  const hostIdsKey = hosts.map((h) => h.id).join(',');
   useEffect(() => {
     hosts.forEach((h) => {
       fetchHostStats(h.id);
     });
-  }, [hosts]);
+  }, [hostIdsKey]);
 
   const handleOpenAdd = () => {
     setEditHost(null);
@@ -334,6 +345,18 @@ export const HostsView: React.FC<HostsViewProps> = ({
           </button>
 
           <button
+            onClick={() => {
+              setDiagHost(null);
+              setDiagModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-carbon-900 hover:bg-carbon-800 border border-carbon-800 text-xs font-mono font-medium text-dorito-400 transition-colors"
+            title="View SSH connection event logs across all hosts"
+          >
+            <Activity className="w-3.5 h-3.5 text-dorito-500" />
+            <span>Connection Logs</span>
+          </button>
+
+          <button
             onClick={onRefresh}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-carbon-900 hover:bg-carbon-800 border border-carbon-800 text-xs font-mono font-medium text-carbon-300 transition-colors"
             title="Refresh all host metrics"
@@ -424,6 +447,20 @@ export const HostsView: React.FC<HostsViewProps> = ({
                           <span className="font-semibold text-white font-sans text-xs tracking-tight">
                             {host.name}
                           </span>
+                          {!isOnline && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDiagHost(host);
+                                setDiagModalOpen(true);
+                              }}
+                              className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono text-rose-400 bg-rose-950/40 border border-rose-800/40 hover:bg-rose-900/50 transition-colors"
+                              title={stats?.error ? `Offline: ${stats.error} (click to diagnose)` : 'Offline: Click to diagnose & view logs'}
+                            >
+                              <AlertCircle className="w-2.5 h-2.5" />
+                              <span>Logs</span>
+                            </button>
+                          )}
                         </div>
                       </td>
                       <td className="py-2.5 px-3 text-carbon-300 text-[11px]">
@@ -474,6 +511,16 @@ export const HostsView: React.FC<HostsViewProps> = ({
                       </td>
                       <td className="py-2.5 px-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => {
+                              setDiagHost(host);
+                              setDiagModalOpen(true);
+                            }}
+                            className="p-1 rounded text-carbon-400 hover:text-dorito-400 hover:bg-carbon-800"
+                            title="Connection Diagnostics & Logs"
+                          >
+                            <Activity className="w-3.5 h-3.5" />
+                          </button>
                           <button
                             onClick={() => {
                               onSelectHost(host.id);
@@ -593,6 +640,16 @@ export const HostsView: React.FC<HostsViewProps> = ({
                   {/* Actions Header */}
                   <div className="flex items-center gap-1 opacity-90 group-hover:opacity-100 shrink-0">
                     <button
+                      onClick={() => {
+                        setDiagHost(host);
+                        setDiagModalOpen(true);
+                      }}
+                      className="p-1.5 rounded-lg text-carbon-400 hover:text-dorito-400 hover:bg-carbon-800 transition-colors"
+                      title="Connection Diagnostics & Logs"
+                    >
+                      <Activity className="w-3.5 h-3.5" />
+                    </button>
+                    <button
                       onClick={() => fetchHostStats(host.id)}
                       disabled={isLoading}
                       className="p-1.5 rounded-lg text-carbon-400 hover:text-white hover:bg-carbon-800 transition-colors"
@@ -651,6 +708,30 @@ export const HostsView: React.FC<HostsViewProps> = ({
                     {host.authType === 'global_key' ? 'Master Key' : host.authType === 'key' ? 'Custom Key' : 'Password'}
                   </span>
                 </div>
+
+                {/* Connection Offline Banner */}
+                {!isOnline && (
+                  <div className="mb-3 p-2.5 bg-rose-950/20 border border-rose-500/40 text-rose-300 flex items-start justify-between gap-2 font-mono">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <div className="font-bold text-xs">Connection Offline</div>
+                        <div className="text-[10px] text-rose-200/80 truncate mt-0.5" title={stats?.error || 'SSH probe failed'}>
+                          {stats?.error || 'SSH probe failed / Host unreachable'}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setDiagHost(host);
+                        setDiagModalOpen(true);
+                      }}
+                      className="px-2 py-1 text-[10px] font-mono bg-rose-900/60 hover:bg-rose-850 border border-rose-750 text-white shrink-0 transition-colors"
+                    >
+                      View Logs
+                    </button>
+                  </div>
+                )}
 
                 {/* Live Dashboards: Beszel-Style Gauges & Sparkline Area Charts */}
                 {(() => {
@@ -1261,6 +1342,15 @@ export const HostsView: React.FC<HostsViewProps> = ({
         hostName={networkInspectorHost?.name}
         hostAddress={networkInspectorHost?.host}
         initialNetworkInfo={formNetworkData}
+      />
+
+      {/* Connection Diagnostics & Logs Modal */}
+      <ConnectionDiagnosticsModal
+        isOpen={diagModalOpen}
+        onClose={() => setDiagModalOpen(false)}
+        host={diagHost}
+        allHosts={hosts}
+        onSelectHost={(h) => setDiagHost(h)}
       />
     </div>
   );
