@@ -17,11 +17,11 @@
 
 ---
 
-## 🗂️ 56 системных команд платформы по категориям
+## 🗂️ 58 системных команд платформы по категориям
 
 | Категория | Кол-во | Примеры ключей | Назначение |
 | :--- | :--- | :--- | :--- |
-| **Docker** | 16 | `Docker.ListContainers`, `Docker.InspectStateBatch`, `Docker.PrunePreview`, `Docker.InspectCrashDump` | Мониторинг, краш-детекция, Smart Prune и управление контейнерами |
+| **Docker** | 18 | `Docker.ListContainers`, `Docker.ListComposeContainers`, `Docker.ComposeLsProjects`, `Docker.InspectStateBatch` | Мониторинг, инспекция compose-меток контейнеров, Smart Prune |
 | **Users** | 9 | `Users.List`, `Users.Create`, `Users.Lock`, `Users.ToggleSudo`, `Users.Delete` | Аудит пользователей, sudo и блокировка доступа |
 | **Firewall** | 7 | `Firewall.UfwStatus`, `Firewall.UfwAddRule`, `Firewall.Fail2banStatus`, `Firewall.Fail2banUnban` | Управление сетевым экраном UFW и разбан в Fail2ban |
 | **Files** | 7 | `Files.DiskUsageTreemap`, `Files.CreateArchive`, `Files.ExtractArchive`, `Files.DirectTransfer` | Расчет дискового пространства, архивация zip/tar и rsync перенос |

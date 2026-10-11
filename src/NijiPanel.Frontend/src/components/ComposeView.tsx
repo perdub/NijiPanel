@@ -38,6 +38,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({ selectedHost, onEditFi
   const [projects, setProjects] = useState<ComposeProject[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchPath, setSearchPath] = useState('');
+  const [filterText, setFilterText] = useState('');
   const [actionOutput, setActionOutput] = useState<{ title: string; output: string } | null>(null);
   const [runningAction, setRunningAction] = useState<string | null>(null);
 
@@ -76,6 +77,16 @@ export const ComposeView: React.FC<ComposeViewProps> = ({ selectedHost, onEditFi
   useEffect(() => {
     fetchProjects();
   }, [selectedHost]);
+
+  const filteredProjects = projects.filter((p) => {
+    if (!filterText.trim()) return true;
+    const q = filterText.toLowerCase();
+    return (
+      p.name.toLowerCase().includes(q) ||
+      p.filePath.toLowerCase().includes(q) ||
+      p.services.some((s) => s.toLowerCase().includes(q))
+    );
+  });
 
   const handleAction = async (filePath: string, projectName: string, action: string) => {
     if (!selectedHost) return;
@@ -191,7 +202,19 @@ export const ComposeView: React.FC<ComposeViewProps> = ({ selectedHost, onEditFi
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {!studioStack && (
+            <div className="relative">
+              <input
+                type="text"
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                placeholder="Filter stacks by name or path..."
+                className="bg-carbon-900 border border-carbon-700 px-3 py-1.5 text-xs text-white placeholder-carbon-500 rounded-lg font-mono focus:outline-none focus:border-dorito-500 w-44 sm:w-60"
+              />
+            </div>
+          )}
+
           {studioStack && (
             <button
               onClick={() => setStudioStack(null)}
@@ -480,26 +503,35 @@ export const ComposeView: React.FC<ComposeViewProps> = ({ selectedHost, onEditFi
       ) : (
         /* PROJECTS LIST VIEW */
         <div className="space-y-3">
-          {projects.length === 0 ? (
+          {filteredProjects.length === 0 ? (
             <div className="rounded-xl border border-dashed border-carbon-700 bg-carbon-900/60 p-12 text-center text-carbon-400">
               <FolderGit2 className="w-12 h-12 text-carbon-600 mx-auto mb-3" />
               <h3 className="text-base font-medium text-white">No Compose projects discovered</h3>
-              <p className="text-xs text-carbon-400 max-w-sm mx-auto mt-1 mb-4 font-mono">
-                Standard paths (/opt, /home, /root, /var/www) were scanned. You can deploy applications from the App Store tab.
+              <p className="text-xs text-carbon-400 max-w-md mx-auto mt-1 mb-4 font-mono">
+                Docker engine was inspected for containers with compose labels, active compose stacks, and filesystem directories (/opt, /srv, /home, /root, /var/www, /etc/docker, /data, /docker, /app).
               </p>
             </div>
           ) : (
-            projects.map((p) => (
+            filteredProjects.map((p) => (
               <div
                 key={p.filePath}
                 className="rounded-xl bg-carbon-900 border border-carbon-700 hover:border-dorito-500/50 p-4 sm:p-5 shadow-lg transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
-                    <span className="w-2.5 h-2.5 rounded-full bg-dorito-500 " />
+                    <span className={`w-2.5 h-2.5 rounded-full ${p.status === 'Running' ? 'bg-emerald-500' : 'bg-dorito-500'}`} />
                     <h3 className="font-medium text-white text-base truncate font-sans">{p.name}</h3>
                     <span className="text-[10px] font-mono text-carbon-300 bg-carbon-850 px-2 py-0.5 rounded border border-carbon-700">
                       {p.services.length} services
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+                        p.status === 'Running'
+                          ? 'bg-emerald-950/40 text-emerald-400 border-emerald-800/40'
+                          : 'bg-carbon-850 text-carbon-400 border-carbon-700'
+                      }`}
+                    >
+                      {p.status}
                     </span>
                   </div>
 

@@ -348,43 +348,182 @@ public class DockerService : IDockerService
 
     public async Task<List<ComposeProjectDto>> FindComposeProjectsAsync(HostEntity host, string? customDir = null)
     {
-        var searchRoots = !string.IsNullOrWhiteSpace(customDir)
-            ? customDir.Trim()
-            : "/opt /home /root /var/www /etc/docker";
+        var projectMap = new Dictionary<string, ComposeProjectDto>(StringComparer.OrdinalIgnoreCase);
 
-        var findCmd = _cmdRegistry.GetCommand("Docker.FindCompose", new { searchRoots });
-        var findTimeout = _cmdRegistry.GetTimeout("Docker.FindCompose", 15);
-        var (_, output, _) = await _sshManager.RunCommandAsync(host, findCmd, timeoutSeconds: findTimeout);
-
-        var projects = new List<ComposeProjectDto>();
-        using var reader = new StringReader(output);
-        string? line;
-        while ((line = reader.ReadLine()) != null)
+        // Source 1: Query Docker Compose container labels (exact technique used by VS Code Docker extension)
+        // Inspects all containers created by docker-compose across the entire host regardless of folder location
+        try
         {
-            var filePath = line.Trim();
-            if (string.IsNullOrWhiteSpace(filePath)) continue;
+            var labelCmd = _cmdRegistry.GetCommand("Docker.ListComposeContainers");
+            var labelTimeout = _cmdRegistry.GetTimeout("Docker.ListComposeContainers", 10);
+            var (_, labelOutput, _) = await _sshManager.RunCommandAsync(host, labelCmd, timeoutSeconds: labelTimeout);
 
-            var dir = Path.GetDirectoryName(filePath)?.Replace('\\', '/') ?? "/";
-            var name = Path.GetFileName(dir);
-            if (string.IsNullOrEmpty(name)) name = "root";
+            if (!string.IsNullOrWhiteSpace(labelOutput))
+            {
+                using var reader = new StringReader(labelOutput);
+                string? line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    var parts = line.Split('|');
+                    if (parts.Length < 4) continue;
 
-            // Run quick ps to get service count and status
-            var psCmd = _cmdRegistry.GetCommand("Docker.ComposePsServices", new { filePath });
-            var psTimeout = _cmdRegistry.GetTimeout("Docker.ComposePsServices", 5);
-            var (_, servicesOutput, _) = await _sshManager.RunCommandAsync(host, psCmd, timeoutSeconds: psTimeout);
+                    var projectName = parts[0].Trim();
+                    var configFiles = parts[1].Trim();
+                    var workingDir = parts[2].Trim();
+                    var serviceName = parts[3].Trim();
+                    var containerStatus = parts.Length > 4 ? parts[4].Trim() : "";
 
-            var services = servicesOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct().ToList();
+                    if (string.IsNullOrEmpty(projectName)) continue;
 
-            projects.Add(new ComposeProjectDto(
-                name,
-                filePath,
-                dir,
-                services,
-                services.Count > 0 ? "Configured" : "Inactive"
-            ));
+                    var primaryConfigFile = configFiles
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .FirstOrDefault();
+
+                    if (string.IsNullOrEmpty(primaryConfigFile) && !string.IsNullOrEmpty(workingDir))
+                    {
+                        primaryConfigFile = Path.Combine(workingDir, "docker-compose.yml").Replace('\\', '/');
+                    }
+                    else if (string.IsNullOrEmpty(primaryConfigFile))
+                    {
+                        primaryConfigFile = $"/opt/nijipanel/apps/{projectName}/docker-compose.yml";
+                    }
+
+                    var dir = !string.IsNullOrEmpty(workingDir)
+                        ? workingDir.Replace('\\', '/')
+                        : (Path.GetDirectoryName(primaryConfigFile)?.Replace('\\', '/') ?? "/");
+
+                    var key = primaryConfigFile.ToLowerInvariant();
+                    if (projectMap.TryGetValue(key, out var existing))
+                    {
+                        if (!string.IsNullOrEmpty(serviceName) && !existing.Services.Contains(serviceName))
+                        {
+                            existing.Services.Add(serviceName);
+                        }
+                        if (containerStatus.StartsWith("Up", StringComparison.OrdinalIgnoreCase))
+                        {
+                            projectMap[key] = existing with { Status = "Running" };
+                        }
+                    }
+                    else
+                    {
+                        var services = new List<string>();
+                        if (!string.IsNullOrEmpty(serviceName)) services.Add(serviceName);
+                        var isUp = containerStatus.StartsWith("Up", StringComparison.OrdinalIgnoreCase);
+                        projectMap[key] = new ComposeProjectDto(
+                            projectName,
+                            primaryConfigFile,
+                            dir,
+                            services,
+                            isUp ? "Running" : "Configured"
+                        );
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Fall through to other discovery methods
         }
 
-        return projects;
+        // Source 2: Query Docker Compose CLI `docker compose ls -a --format json`
+        try
+        {
+            var lsCmd = _cmdRegistry.GetCommand("Docker.ComposeLsProjects");
+            var lsTimeout = _cmdRegistry.GetTimeout("Docker.ComposeLsProjects", 10);
+            var (_, lsOutput, _) = await _sshManager.RunCommandAsync(host, lsCmd, timeoutSeconds: lsTimeout);
+
+            if (!string.IsNullOrWhiteSpace(lsOutput) && lsOutput.TrimStart().StartsWith("["))
+            {
+                using var doc = JsonDocument.Parse(lsOutput.Trim());
+                if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var el in doc.RootElement.EnumerateArray())
+                    {
+                        var name = el.TryGetProperty("Name", out var n) ? n.GetString() ?? "" : "";
+                        var status = el.TryGetProperty("Status", out var s) ? s.GetString() ?? "" : "";
+                        var configFiles = el.TryGetProperty("ConfigFiles", out var c) ? c.GetString() ?? "" : "";
+
+                        if (string.IsNullOrEmpty(name)) continue;
+
+                        var primaryFile = configFiles
+                            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                            .FirstOrDefault() ?? $"/opt/nijipanel/apps/{name}/docker-compose.yml";
+                        var dir = Path.GetDirectoryName(primaryFile)?.Replace('\\', '/') ?? "/";
+                        var key = primaryFile.ToLowerInvariant();
+
+                        var isRunning = status.IndexOf("running", StringComparison.OrdinalIgnoreCase) >= 0;
+                        var displayStatus = isRunning ? "Running" : "Configured";
+
+                        if (projectMap.TryGetValue(key, out var existing))
+                        {
+                            projectMap[key] = existing with { Status = isRunning ? "Running" : existing.Status };
+                        }
+                        else
+                        {
+                            projectMap[key] = new ComposeProjectDto(
+                                name,
+                                primaryFile,
+                                dir,
+                                new List<string>(),
+                                displayStatus
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Fall through to filesystem scan
+        }
+
+        // Source 3: Filesystem scan for unstarted/idle compose files across standard application paths
+        try
+        {
+            var searchRoots = !string.IsNullOrWhiteSpace(customDir)
+                ? customDir.Trim()
+                : "/opt /srv /home /root /var/www /etc/docker /data /docker /app";
+
+            var findCmd = _cmdRegistry.GetCommand("Docker.FindCompose", new { searchRoots });
+            var findTimeout = _cmdRegistry.GetTimeout("Docker.FindCompose", 15);
+            var (_, output, _) = await _sshManager.RunCommandAsync(host, findCmd, timeoutSeconds: findTimeout);
+
+            using var reader = new StringReader(output);
+            string? line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                var filePath = line.Trim();
+                if (string.IsNullOrWhiteSpace(filePath)) continue;
+
+                var key = filePath.ToLowerInvariant();
+                if (projectMap.ContainsKey(key)) continue;
+
+                var dir = Path.GetDirectoryName(filePath)?.Replace('\\', '/') ?? "/";
+                var name = Path.GetFileName(dir);
+                if (string.IsNullOrEmpty(name) || name == "/") name = "compose";
+
+                // Quick ps for services if available
+                var psCmd = _cmdRegistry.GetCommand("Docker.ComposePsServices", new { filePath });
+                var psTimeout = _cmdRegistry.GetTimeout("Docker.ComposePsServices", 5);
+                var (_, servicesOutput, _) = await _sshManager.RunCommandAsync(host, psCmd, timeoutSeconds: psTimeout);
+
+                var services = servicesOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct().ToList();
+
+                projectMap[key] = new ComposeProjectDto(
+                    name,
+                    filePath,
+                    dir,
+                    services,
+                    services.Count > 0 ? "Configured" : "Inactive"
+                );
+            }
+        }
+        catch
+        {
+            // Ignore scan errors
+        }
+
+        return projectMap.Values.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     public async Task<ComposeActionResponse> ExecuteComposeActionAsync(HostEntity host, string composeFile, string action)

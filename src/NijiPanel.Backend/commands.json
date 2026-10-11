@@ -84,6 +84,20 @@
     "timeoutSeconds": 15
   },
   {
+    "key": "Docker.ComposeLsProjects",
+    "category": "Docker",
+    "command": "docker compose ls -a --format json 2>/dev/null || true",
+    "description": "List all active and inactive Docker Compose projects via compose engine",
+    "timeoutSeconds": 10
+  },
+  {
+    "key": "Docker.ListComposeContainers",
+    "category": "Docker",
+    "command": "docker ps -a --filter 'label=com.docker.compose.project' --format '{{.Label \"com.docker.compose.project\"}}|{{.Label \"com.docker.compose.project.config_files\"}}|{{.Label \"com.docker.compose.project.working_dir\"}}|{{.Label \"com.docker.compose.service\"}}|{{.Status}}' 2>/dev/null || true",
+    "description": "Inspect all Docker Compose containers across the host using Docker engine labels",
+    "timeoutSeconds": 10
+  },
+  {
     "key": "Docker.ComposePsServices",
     "category": "Docker",
     "command": "docker compose -f '{filePath}' ps --format '{{.Service}}' 2>/dev/null || docker-compose -f '{filePath}' ps --services 2>/dev/null",

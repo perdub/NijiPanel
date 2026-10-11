@@ -41,9 +41,44 @@ import { api } from '../api';
 interface FilesViewProps {
   selectedHost: Host | null;
   initialPath?: string;
+  onPathChange?: (path: string) => void;
 }
 
-export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath = '/' }) => {
+// Module-level in-memory cache for directory listings (Stale-While-Revalidate)
+interface CachedDirectory {
+  listing: DirectoryListing;
+  timestamp: number;
+}
+const directoryCache: Map<string, CachedDirectory> = new Map();
+
+function getCacheKey(hostId: string, path: string): string {
+  const norm = path.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/$/, '') || '/';
+  return `${hostId}:${norm}`;
+}
+
+export function invalidateDirectoryCache(hostId?: string, path?: string) {
+  if (!hostId) {
+    directoryCache.clear();
+    return;
+  }
+  if (!path) {
+    for (const key of Array.from(directoryCache.keys())) {
+      if (key.startsWith(`${hostId}:`)) {
+        directoryCache.delete(key);
+      }
+    }
+  } else {
+    directoryCache.delete(getCacheKey(hostId, path));
+    const parts = path.split('/').filter(Boolean);
+    if (parts.length > 0) {
+      parts.pop();
+      const parent = '/' + parts.join('/');
+      directoryCache.delete(getCacheKey(hostId, parent));
+    }
+  }
+}
+
+export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath = '/', onPathChange }) => {
   const [currentPath, setCurrentPath] = useState(initialPath);
   const [listing, setListing] = useState<DirectoryListing | null>(null);
   const [loading, setLoading] = useState(false);
@@ -163,7 +198,8 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
         success: res.success,
       });
 
-      loadDirectory(currentPath);
+      invalidateDirectoryCache(selectedHost.id, currentPath);
+      loadDirectory(currentPath, true);
     } catch (err: any) {
       setTransferResult({
         title: `Transfer Error: ${clipboard.name}`,
@@ -175,16 +211,36 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
     }
   };
 
-  const loadDirectory = async (path: string) => {
+  const loadDirectory = async (path: string, force = false) => {
     if (!selectedHost) return;
-    setLoading(true);
+    const cacheKey = getCacheKey(selectedHost.id, path);
+    const cached = directoryCache.get(cacheKey);
+
+    // Instant render from cache if available
+    if (cached && !force) {
+      setListing(cached.listing);
+      setCurrentPath(cached.listing.currentPath);
+      onPathChange?.(cached.listing.currentPath);
+      // If cached less than 45 seconds ago, skip network call
+      if (Date.now() - cached.timestamp < 45_000) {
+        setLoading(false);
+        return;
+      }
+    } else if (!cached) {
+      setLoading(true);
+    }
+
     setSelectedItems([]);
     try {
       const data = await api.files.list(selectedHost.id, path);
+      directoryCache.set(cacheKey, { listing: data, timestamp: Date.now() });
       setListing(data);
       setCurrentPath(data.currentPath);
+      onPathChange?.(data.currentPath);
     } catch (err: any) {
-      alert(`Failed to read directory: ${err.message}`);
+      if (!cached) {
+        alert(`Failed to read directory: ${err.message}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -194,7 +250,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
     if (selectedHost) {
       loadDirectory(initialPath);
     }
-  }, [selectedHost, initialPath]);
+  }, [selectedHost?.id, initialPath]);
 
   // Checkbox toggle handlers
   const toggleSelectItem = (name: string) => {
@@ -269,7 +325,8 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
       setEditorSaved(true);
       setEditingFile((prev) => (prev ? { ...prev, originalContent: prev.content } : null));
       setTimeout(() => setEditorSaved(false), 2000);
-      loadDirectory(currentPath);
+      invalidateDirectoryCache(selectedHost.id, currentPath);
+      loadDirectory(currentPath, true);
     } catch (err: any) {
       alert(`Failed to save file: ${err.message}`);
     } finally {
@@ -287,7 +344,8 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
 
     try {
       await api.files.delete(selectedHost.id, item.path);
-      loadDirectory(currentPath);
+      invalidateDirectoryCache(selectedHost.id, currentPath);
+      loadDirectory(currentPath, true);
     } catch (err: any) {
       alert(`Failed to delete: ${err.message}`);
     }
@@ -300,7 +358,8 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
 
     try {
       await api.files.upload(selectedHost.id, targetPath, file);
-      loadDirectory(currentPath);
+      invalidateDirectoryCache(selectedHost.id, currentPath);
+      loadDirectory(currentPath, true);
     } catch (err: any) {
       alert(`Upload failed: ${err.message}`);
     } finally {
@@ -322,7 +381,8 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
       }
       setCreateModal(null);
       setCreateName('');
-      loadDirectory(currentPath);
+      invalidateDirectoryCache(selectedHost.id, currentPath);
+      loadDirectory(currentPath, true);
     } catch (err: any) {
       alert(`Creation failed: ${err.message}`);
     }
@@ -442,7 +502,8 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
       });
       setShowCompressModal(false);
       setSelectedItems([]);
-      loadDirectory(currentPath);
+      invalidateDirectoryCache(selectedHost.id, currentPath);
+      loadDirectory(currentPath, true);
     } catch (err: any) {
       alert(`Archiving failed: ${err.message}`);
     } finally {
@@ -465,7 +526,8 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
         destinationPath: extractDestPath.trim() || currentPath,
       });
       setExtractTargetItem(null);
-      loadDirectory(currentPath);
+      invalidateDirectoryCache(selectedHost.id, currentPath);
+      loadDirectory(currentPath, true);
     } catch (err: any) {
       alert(`Extraction failed: ${err.message}`);
     } finally {
@@ -568,10 +630,13 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
           </button>
 
           <button
-            onClick={() => loadDirectory(currentPath)}
+            onClick={() => {
+              if (selectedHost) invalidateDirectoryCache(selectedHost.id, currentPath);
+              loadDirectory(currentPath, true);
+            }}
             disabled={loading}
             className="p-1.5 rounded-lg bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-carbon-300 transition-colors"
-            title="Refresh"
+            title="Refresh directory contents"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-dorito-500' : ''}`} />
           </button>

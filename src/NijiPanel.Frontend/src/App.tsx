@@ -72,6 +72,22 @@ function syncUrlToBrowser(tab: string, hostId: string | null, filePath: string |
   }
 }
 
+function getSavedFilesPath(hostId: string | null | undefined): string | null {
+  if (!hostId) return null;
+  try {
+    return sessionStorage.getItem(`nijipanel_files_path_${hostId}`) || null;
+  } catch {
+    return null;
+  }
+}
+
+function setSavedFilesPath(hostId: string | null | undefined, path: string) {
+  if (!hostId) return;
+  try {
+    sessionStorage.setItem(`nijipanel_files_path_${hostId}`, path);
+  } catch {}
+}
+
 export const App: React.FC = () => {
   const [authChecked, setAuthChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -175,21 +191,38 @@ export const App: React.FC = () => {
 
   const navigateTo = (tab: string, hostId?: string, filePath?: string | null) => {
     const nextHostId = hostId !== undefined ? hostId : selectedHostId;
-    const nextFilePath = filePath !== undefined ? filePath : fileToEditPath;
+    let nextFilePath = filePath !== undefined ? filePath : fileToEditPath;
+    if (tab === 'files' && (!nextFilePath || nextFilePath === '/')) {
+      const saved = getSavedFilesPath(nextHostId);
+      if (saved) nextFilePath = saved;
+    }
     setActiveTab(tab);
     if (hostId !== undefined) {
       setSelectedHostId(hostId);
     }
-    if (filePath !== undefined) {
-      setFileToEditPath(filePath);
+    if (nextFilePath !== undefined) {
+      setFileToEditPath(nextFilePath);
     }
     syncUrlToBrowser(tab, nextHostId, nextFilePath, settingsOpen, false);
   };
 
   const handleSelectHost = (id: string) => {
     setSelectedHostId(id);
-    syncUrlToBrowser(activeTab, id, fileToEditPath, settingsOpen, false);
+    let nextPath = fileToEditPath;
+    if (activeTab === 'files') {
+      nextPath = getSavedFilesPath(id) || '/';
+      setFileToEditPath(nextPath);
+    }
+    syncUrlToBrowser(activeTab, id, nextPath, settingsOpen, false);
   };
+
+  const handleFilesPathChange = useCallback((newPath: string) => {
+    setFileToEditPath(newPath);
+    if (selectedHostId) {
+      setSavedFilesPath(selectedHostId, newPath);
+    }
+    syncUrlToBrowser('files', selectedHostId, newPath, settingsOpen, true);
+  }, [selectedHostId, settingsOpen]);
 
   const handleOpenSettings = (open: boolean) => {
     setSettingsOpen(open);
@@ -417,7 +450,8 @@ export const App: React.FC = () => {
           {activeTab === 'files' && (
             <FilesView
               selectedHost={selectedHost}
-              initialPath={fileToEditPath || '/'}
+              initialPath={fileToEditPath || getSavedFilesPath(selectedHost?.id) || '/'}
+              onPathChange={handleFilesPathChange}
             />
           )}
 
