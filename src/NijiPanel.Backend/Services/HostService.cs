@@ -20,17 +20,20 @@ public class HostService : IHostService
     private readonly IEncryptionService _encryptionService;
     private readonly ISshConnectionManager _sshManager;
     private readonly ICommandRegistry _cmdRegistry;
+    private readonly ICacheService _cacheService;
 
     public HostService(
         DatabaseContext dbContext,
         IEncryptionService encryptionService,
         ISshConnectionManager sshManager,
-        ICommandRegistry cmdRegistry)
+        ICommandRegistry cmdRegistry,
+        ICacheService cacheService)
     {
         _dbContext = dbContext;
         _encryptionService = encryptionService;
         _sshManager = sshManager;
         _cmdRegistry = cmdRegistry;
+        _cacheService = cacheService;
     }
 
     public async Task<List<HostDto>> GetAllHostsAsync()
@@ -65,6 +68,20 @@ public class HostService : IHostService
         var dtos = new List<HostDto>();
         foreach (var h in entities)
         {
+            bool? isOnline = null;
+            if (_sshManager.IsConnected(h.Id))
+            {
+                isOnline = true;
+            }
+            else
+            {
+                var cachedStats = _cacheService.Get<HostSystemStats>($"host_stats_{h.Id}");
+                if (cachedStats != null)
+                {
+                    isOnline = cachedStats.IsOnline;
+                }
+            }
+
             dtos.Add(new HostDto(
                 h.Id,
                 h.Name,
@@ -74,7 +91,8 @@ public class HostService : IHostService
                 h.AuthType,
                 h.Notes,
                 h.Tags,
-                h.CreatedAt
+                h.CreatedAt,
+                isOnline
             ));
         }
 
@@ -112,6 +130,20 @@ public class HostService : IHostService
         var entity = await GetHostEntityAsync(id);
         if (entity == null) return null;
 
+        bool? isOnline = null;
+        if (_sshManager.IsConnected(entity.Id))
+        {
+            isOnline = true;
+        }
+        else
+        {
+            var cachedStats = _cacheService.Get<HostSystemStats>($"host_stats_{entity.Id}");
+            if (cachedStats != null)
+            {
+                isOnline = cachedStats.IsOnline;
+            }
+        }
+
         return new HostDto(
             entity.Id,
             entity.Name,
@@ -121,7 +153,8 @@ public class HostService : IHostService
             entity.AuthType,
             entity.Notes,
             entity.Tags,
-            entity.CreatedAt
+            entity.CreatedAt,
+            isOnline
         );
     }
 

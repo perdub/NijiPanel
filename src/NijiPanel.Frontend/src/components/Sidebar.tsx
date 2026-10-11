@@ -271,7 +271,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-carbon-900 border border-carbon-700 hover:border-carbon-600 transition-colors text-left"
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      selectedHost?.isOnline !== false ? 'bg-emerald-500' : 'bg-rose-500'
+                    }`}
+                  />
                   <div className="truncate">
                     <div className="text-xs font-semibold text-white truncate">
                       {selectedHost ? selectedHost.name : 'No Host Selected'}
@@ -320,10 +324,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               : 'text-carbon-200'
                           }`}
                         >
-                          <div className="truncate">
-                            <div className="truncate font-medium">{h.name}</div>
-                            <div className="text-[10px] text-carbon-400 font-mono truncate">
-                              {h.username}@{h.host}:{h.port}
+                          <div className="flex items-center gap-2 truncate">
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                h.isOnline !== false ? 'bg-emerald-400' : 'bg-rose-400'
+                              }`}
+                            />
+                            <div className="truncate">
+                              <div className="truncate font-medium">{h.name}</div>
+                              <div className="text-[10px] text-carbon-400 font-mono truncate">
+                                {h.username}@{h.host}:{h.port}
+                              </div>
                             </div>
                           </div>
                           {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-dorito-500 ml-2 shrink-0" />}

@@ -16,6 +16,7 @@ public interface ISshConnectionManager
     Task<(bool Success, string? Error)> TestConnectionAsync(HostEntity host);
     Task<HostSystemStats> GetHostStatsAsync(HostEntity host);
     void InvalidateHost(string hostId);
+    bool IsConnected(string hostId);
 }
 
 public record HostSystemStats(
@@ -68,6 +69,19 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
                 ? _encryptionService.Decrypt(host.CredentialEncrypted)
                 : "";
             authMethods.Add(new PasswordAuthenticationMethod(host.Username, pass));
+
+            var kbdAuth = new KeyboardInteractiveAuthenticationMethod(host.Username);
+            kbdAuth.AuthenticationPrompt += (_, e) =>
+            {
+                foreach (var prompt in e.Prompts)
+                {
+                    if (prompt.Request.IndexOf("password", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        prompt.Response = pass;
+                    }
+                }
+            };
+            authMethods.Add(kbdAuth);
         }
         else if (host.AuthType.Equals("key", StringComparison.OrdinalIgnoreCase))
         {
@@ -78,18 +92,24 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
                 ? _encryptionService.Decrypt(host.PassphraseEncrypted)
                 : null;
 
-            using var keyStream = new MemoryStream(Encoding.UTF8.GetBytes(keyContent));
-            var keyFile = string.IsNullOrEmpty(passphrase)
-                ? new PrivateKeyFile(keyStream)
-                : new PrivateKeyFile(keyStream, passphrase);
-            authMethods.Add(new PrivateKeyAuthenticationMethod(host.Username, keyFile));
+            if (!string.IsNullOrWhiteSpace(keyContent))
+            {
+                using var keyStream = new MemoryStream(Encoding.UTF8.GetBytes(keyContent));
+                var keyFile = string.IsNullOrEmpty(passphrase)
+                    ? new PrivateKeyFile(keyStream)
+                    : new PrivateKeyFile(keyStream, passphrase);
+                authMethods.Add(new PrivateKeyAuthenticationMethod(host.Username, keyFile));
+            }
         }
         else // default: "global_key"
         {
             var globalKeyPem = _settingsService.GetMasterPrivateKey();
-            using var keyStream = new MemoryStream(Encoding.UTF8.GetBytes(globalKeyPem));
-            var keyFile = new PrivateKeyFile(keyStream);
-            authMethods.Add(new PrivateKeyAuthenticationMethod(host.Username, keyFile));
+            if (!string.IsNullOrWhiteSpace(globalKeyPem))
+            {
+                using var keyStream = new MemoryStream(Encoding.UTF8.GetBytes(globalKeyPem));
+                var keyFile = new PrivateKeyFile(keyStream);
+                authMethods.Add(new PrivateKeyAuthenticationMethod(host.Username, keyFile));
+            }
         }
 
         return new SshConnInfo(host.Host, host.Port, host.Username, authMethods.ToArray())
@@ -292,6 +312,11 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
         {
             try { sftp.Dispose(); } catch { }
         }
+    }
+
+    public bool IsConnected(string hostId)
+    {
+        return _sshClients.TryGetValue(hostId, out var client) && client.IsConnected;
     }
 
     public void Dispose()

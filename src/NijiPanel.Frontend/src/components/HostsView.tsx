@@ -40,6 +40,7 @@ interface HostsViewProps {
   onOpenTab: (tab: string, hostId?: string) => void;
   masterPublicKey: string;
   onOpenOnboarding?: () => void;
+  onHostStatsUpdated?: (hostId: string, isOnline: boolean) => void;
 }
 
 // Module-level cache for instantaneous view switching (stale-while-revalidate)
@@ -53,6 +54,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
   onOpenTab,
   masterPublicKey,
   onOpenOnboarding,
+  onHostStatsUpdated,
 }) => {
   const [statsMap, setStatsMap] = useState<Record<string, HostStats>>(() => ({ ...cachedStatsMap }));
   const [loadingStats, setLoadingStats] = useState<Record<string, boolean>>({});
@@ -144,6 +146,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
       ]);
       cachedStatsMap[hostId] = stats;
       setStatsMap((prev) => ({ ...prev, [hostId]: stats }));
+      onHostStatsUpdated?.(hostId, stats.isOnline);
       if (history) {
         cachedMetricsMap[hostId] = history;
         setMetricsMap((prev) => ({ ...prev, [hostId]: history }));
@@ -155,6 +158,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
           [hostId]: { isOnline: false, error: 'Connection failed' }
         }));
       }
+      onHostStatsUpdated?.(hostId, false);
     } finally {
       setLoadingStats((prev) => ({ ...prev, [hostId]: false }));
     }
@@ -404,7 +408,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
                 {hosts.map((host) => {
                   const stats = statsMap[host.id];
                   const isLoading = loadingStats[host.id];
-                  const isOnline = stats?.isOnline ?? false;
+                  const isOnline = stats ? stats.isOnline : (host.isOnline ?? true);
 
                   return (
                     <tr
@@ -557,7 +561,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
         {hosts.map((host) => {
           const stats = statsMap[host.id];
           const isLoading = loadingStats[host.id];
-          const isOnline = stats?.isOnline ?? false;
+          const isOnline = stats ? stats.isOnline : (host.isOnline ?? true);
 
           return (
             <div

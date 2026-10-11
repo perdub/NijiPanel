@@ -109,7 +109,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onClick={() => setHostDropdownOpen(!hostDropdownOpen)}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-xs sm:text-sm font-medium text-carbon-100 transition-colors shadow-sm"
                 >
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      selectedHost?.isOnline !== false ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'
+                    }`}
+                  />
                   <span className="max-w-[110px] sm:max-w-[170px] truncate font-mono text-xs">
                     {selectedHost ? selectedHost.name : 'Select host'}
                   </span>
@@ -149,10 +153,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                                 : 'text-carbon-200'
                             }`}
                           >
-                            <div className="truncate">
-                              <div className="truncate font-medium">{h.name}</div>
-                              <div className="text-[10px] text-carbon-400 truncate font-mono">
-                                {h.username}@{h.host}:{h.port}
+                            <div className="flex items-center gap-2 truncate">
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                  h.isOnline !== false ? 'bg-emerald-400' : 'bg-rose-400'
+                                }`}
+                              />
+                              <div className="truncate">
+                                <div className="truncate font-medium">{h.name}</div>
+                                <div className="text-[10px] text-carbon-400 truncate font-mono">
+                                  {h.username}@{h.host}:{h.port}
+                                </div>
                               </div>
                             </div>
                             {isCurrent && (

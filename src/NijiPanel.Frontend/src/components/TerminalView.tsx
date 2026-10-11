@@ -81,6 +81,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
 
     // Check if tabs exist in localStorage for this host
     const storageKey = `nijipanel_term_tabs_${selectedHost.id}`;
+    const expectedPrefix = `sess-${selectedHost.id}-`;
     let loadedTabs: TerminalTab[] = [];
     try {
       const raw = localStorage.getItem(storageKey);
@@ -89,7 +90,9 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
         if (Array.isArray(parsed) && parsed.length > 0) {
           loadedTabs = parsed.map((t: any, idx: number) => ({
             id: t.id || `term-${Date.now()}-${idx + 1}`,
-            sessionId: t.sessionId || `sess-${selectedHost.id}-${idx + 1}`,
+            sessionId: (t.sessionId && typeof t.sessionId === 'string' && t.sessionId.startsWith(expectedPrefix))
+              ? t.sessionId
+              : `${expectedPrefix}${idx + 1}`,
             tabIndex: t.tabIndex || idx + 1,
             title: t.title || `Session ${idx + 1}`,
             path: t.path || '~',
@@ -111,10 +114,11 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
             if (existing) {
               existing.path = hs.path || existing.path;
               existing.tmuxSession = hs.sessionName;
+              existing.sessionId = `${expectedPrefix}${existing.tabIndex || hs.tabIndex}`;
             } else {
               merged.push({
                 id: `term-${Date.now()}-${hs.tabIndex}`,
-                sessionId: `sess-${selectedHost.id}-${hs.tabIndex}`,
+                sessionId: `${expectedPrefix}${hs.tabIndex}`,
                 tabIndex: hs.tabIndex,
                 title: `Session ${hs.tabIndex}`,
                 path: hs.path || '~',
@@ -156,6 +160,10 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
   // Save active tabs to localStorage whenever they change
   useEffect(() => {
     if (!selectedHost || tabs.length === 0) return;
+    const expectedPrefix = `sess-${selectedHost.id}-`;
+    const belongsToCurrentHost = tabs.every((t) => t.sessionId && t.sessionId.startsWith(expectedPrefix));
+    if (!belongsToCurrentHost) return;
+
     const storageKey = `nijipanel_term_tabs_${selectedHost.id}`;
     try {
       const toSave = tabs.map((t) => ({
@@ -289,6 +297,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
 
       const fitAddon = new FitAddon();
       term.loadAddon(fitAddon);
+      containerEl.innerHTML = '';
       term.open(containerEl);
 
       instance = {

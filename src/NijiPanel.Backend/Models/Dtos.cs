@@ -22,7 +22,7 @@ public record HostDto(
     string? Notes,
     string? Tags,
     DateTime CreatedAt,
-    bool IsOnline = false,
+    bool? IsOnline = null,
     string? OsInfo = null,
     string? Uptime = null,
     string? CpuUsage = null,

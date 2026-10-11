@@ -333,14 +333,24 @@ public class TerminalSessionManager : ITerminalSessionManager
     {
         if (!string.IsNullOrEmpty(sessionId) && _sessions.TryGetValue(sessionId, out var existing))
         {
-            if (existing.Shell.CanRead && (existing.DedicatedClient == null || existing.DedicatedClient.IsConnected))
+            if (existing.HostId == host.Id && existing.Shell.CanRead && (existing.DedicatedClient == null || existing.DedicatedClient.IsConnected))
             {
                 existing.Resize(cols, rows);
                 return existing;
             }
-            // If the shell stream or dedicated SSH client ended, remove stale session and re-create fresh!
-            _sessions.TryRemove(sessionId, out _);
-            existing.Dispose();
+
+            if (existing.HostId != host.Id)
+            {
+                _logger.LogWarning("Requested terminal sessionId '{SessionId}' belongs to host '{ExistingHostId}', not '{RequestedHostId}'. Regenerating new session ID.",
+                    sessionId, existing.HostId, host.Id);
+                sessionId = null;
+            }
+            else
+            {
+                // If the shell stream or dedicated SSH client ended, remove stale session and re-create fresh!
+                _sessions.TryRemove(sessionId, out _);
+                existing.Dispose();
+            }
         }
 
         // Determine tab index
@@ -407,10 +417,12 @@ public class TerminalSessionManager : ITerminalSessionManager
                 $"export TERM=xterm-256color; " +
                 $"tmux set-option -g status off 2>/dev/null || true; " +
                 $"tmux set-option -g history-limit 50000 2>/dev/null || true; " +
-                $"exec tmux new-session -A -s \"{tmuxName}\" -c \"{safeDir}\"; " +
+                $"if [ -d \"{safeDir}\" ]; then TARGET_DIR=\"{safeDir}\"; else TARGET_DIR=\"$HOME\"; fi; " +
+                $"[ -d \"$TARGET_DIR\" ] || TARGET_DIR=\"~\"; " +
+                $"exec tmux new-session -A -s \"{tmuxName}\" -c \"$TARGET_DIR\"; " +
                 $"else " +
                 $"cd \"{safeDir}\" 2>/dev/null || cd \"$HOME\" 2>/dev/null || cd ~ 2>/dev/null; " +
-                $"exec bash -l || exec sh; " +
+                $"exec bash -l 2>/dev/null || exec bash 2>/dev/null || exec sh; " +
                 $"fi\n";
 
             shell.Write(Encoding.UTF8.GetBytes(tmuxBootstrapCmd));
@@ -531,7 +543,34 @@ public class TerminalSessionManager : ITerminalSessionManager
         int? tabIndex = null,
         string? initialDir = null)
     {
-        var session = GetOrCreateSession(host, sessionId, cols, rows, containerId, tabIndex, initialDir);
+        TerminalSession session;
+        try
+        {
+            session = GetOrCreateSession(host, sessionId, cols, rows, containerId, tabIndex, initialDir);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create terminal session for host {HostName} ({HostId})", host.Name, host.Id);
+            var errText = $"\r\n\x1b[1;31m[NijiPanel] Failed to connect to SSH host '{host.Name}' ({host.Host}:{host.Port})\x1b[0m\r\n" +
+                          $"\x1b[33mError: {ex.Message}\x1b[0m\r\n" +
+                          $"\x1b[90mCheck credentials, auth type, or network connectivity in Host Settings.\x1b[0m\r\n\r\n";
+            try
+            {
+                if (webSocket.State == WebSocketState.Open)
+                {
+                    await webSocket.SendAsync(
+                        new ArraySegment<byte>(Encoding.UTF8.GetBytes(errText)),
+                        WebSocketMessageType.Text,
+                        true,
+                        CancellationToken.None);
+                    await Task.Delay(500);
+                    await webSocket.CloseAsync(WebSocketCloseStatus.InternalServerError, ex.Message, CancellationToken.None);
+                }
+            }
+            catch { }
+            return;
+        }
+
         session.AttachSocket(webSocket);
 
         try

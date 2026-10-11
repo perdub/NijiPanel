@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { TopHeader } from './components/TopHeader';
 import { HostsView } from './components/HostsView';
@@ -196,6 +196,30 @@ export const App: React.FC = () => {
     syncUrlToBrowser(activeTab, selectedHostId, fileToEditPath, open, false);
   };
 
+  const handleHostStatsUpdated = useCallback((hostId: string, isOnline: boolean) => {
+    setHosts((prev) =>
+      prev.map((item) => (item.id === hostId ? { ...item, isOnline } : item))
+    );
+  }, []);
+
+  const refreshHostStatuses = useCallback(async (targetHosts: Host[]) => {
+    if (!targetHosts || targetHosts.length === 0) return;
+    await Promise.allSettled(
+      targetHosts.map(async (h) => {
+        try {
+          const stats = await api.hosts.stats(h.id);
+          setHosts((prev) =>
+            prev.map((item) => (item.id === h.id ? { ...item, isOnline: stats.isOnline } : item))
+          );
+        } catch {
+          setHosts((prev) =>
+            prev.map((item) => (item.id === h.id ? { ...item, isOnline: false } : item))
+          );
+        }
+      })
+    );
+  }, []);
+
   const loadData = async () => {
     try {
       const [hostsData, keyData] = await Promise.all([
@@ -204,6 +228,7 @@ export const App: React.FC = () => {
       ]);
       setHosts(hostsData);
       setMasterKey(keyData);
+      refreshHostStatuses(hostsData);
 
       if (hostsData.length > 0) {
         if (selectedHostId && hostsData.some((h) => h.id === selectedHostId)) {
@@ -257,9 +282,17 @@ export const App: React.FC = () => {
       loadData();
       loadNotifications();
       const interval = setInterval(loadNotifications, 20000);
-      return () => clearInterval(interval);
+      const hostStatsInterval = setInterval(() => {
+        if (hosts.length > 0) {
+          refreshHostStatuses(hosts);
+        }
+      }, 30000);
+      return () => {
+        clearInterval(interval);
+        clearInterval(hostStatsInterval);
+      };
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, hosts.length]);
 
   const handleLogout = () => {
     clearToken();
@@ -348,6 +381,7 @@ export const App: React.FC = () => {
               onOpenTab={(tab, hostId) => navigateTo(tab, hostId)}
               masterPublicKey={masterKey?.publicKey || ''}
               onOpenOnboarding={() => setOnboardingOpen(true)}
+              onHostStatsUpdated={handleHostStatsUpdated}
             />
           )}
 
@@ -383,7 +417,7 @@ export const App: React.FC = () => {
           )}
 
           <div className={activeTab === 'terminal' ? 'h-full' : 'hidden'}>
-            <TerminalView selectedHost={selectedHost} />
+            <TerminalView key={selectedHost?.id || 'none'} selectedHost={selectedHost} />
           </div>
 
           {activeTab === 'cron' && (
