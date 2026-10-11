@@ -15,6 +15,7 @@ public interface ISshConnectionManager
     SshClient GetSshClient(HostEntity host);
     SshClient CreateDedicatedSshClient(HostEntity host);
     SftpClient GetSftpClient(HostEntity host);
+    SftpClient CreateDedicatedSftpClient(HostEntity host);
     Task<(int ExitCode, string Output, string Error)> RunCommandAsync(HostEntity host, string command, int timeoutSeconds = 30);
     Task<(bool Success, string? Error)> TestConnectionAsync(HostEntity host);
     Task<ConnectionDiagnosticResult> DiagnoseConnectionAsync(HostEntity host);
@@ -165,6 +166,23 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
         catch (Exception ex)
         {
             _logService.Log(host.Id, host.Name, "ERROR", "SSH_CONNECT", $"Dedicated session failed to {host.Host}:{host.Port} - {ex.Message}");
+            throw;
+        }
+    }
+
+    public SftpClient CreateDedicatedSftpClient(HostEntity host)
+    {
+        try
+        {
+            var connInfo = CreateConnectionInfo(host);
+            var client = new SftpClient(connInfo);
+            client.KeepAliveInterval = TimeSpan.FromSeconds(15);
+            client.Connect();
+            return client;
+        }
+        catch (Exception ex)
+        {
+            _logService.Log(host.Id, host.Name, "ERROR", "SFTP_CONNECT", $"Dedicated SFTP session failed - {ex.Message}");
             throw;
         }
     }

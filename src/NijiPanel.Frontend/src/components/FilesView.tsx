@@ -809,9 +809,9 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
                         {!item.isDirectory && (
                           <a
                             href={api.files.getStreamUrl(selectedHost.id, item.path, true)}
-                            download
+                            download={item.name}
                             className="p-1 rounded text-carbon-400 hover:text-white transition-colors"
-                            title="Download file"
+                            title={`Download ${item.name}`}
                           >
                             <Download className="w-3.5 h-3.5" />
                           </a>
@@ -869,6 +869,16 @@ export const FilesView: React.FC<FilesViewProps> = ({ selectedHost, initialPath 
                   <GitCompare className="w-3.5 h-3.5 text-dorito-400" />
                   <span>{diffMode ? 'Edit Mode' : 'Diff View'}</span>
                 </button>
+
+                <a
+                  href={api.files.getStreamUrl(selectedHost.id, editingFile.path, true)}
+                  download={editingFile.path.split('/').pop() || 'file'}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-carbon-300 hover:text-white text-xs font-mono transition-colors"
+                  title="Download file to local machine"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Download</span>
+                </a>
 
                 <button
                   onClick={handleSaveEditor}

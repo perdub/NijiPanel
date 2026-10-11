@@ -79,14 +79,14 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero
     };
 
-    // Support token in query string for WebSockets
+    // Support token in query string for WebSockets, file downloads, and media previews
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
         {
-            var accessToken = context.Request.Query["access_token"];
-            var path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/ws"))
+            var accessToken = context.Request.Query["access_token"].FirstOrDefault()
+                              ?? context.Request.Query["token"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(accessToken))
             {
                 context.Token = accessToken;
             }

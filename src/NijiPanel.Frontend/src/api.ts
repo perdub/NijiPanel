@@ -250,7 +250,7 @@ export const api = {
       }),
     getStreamUrl: (hostId: string, path: string, download = false) => {
       const token = getToken();
-      return `${API_BASE}/hosts/${hostId}/files/stream?path=${encodeURIComponent(path)}&download=${download}&access_token=${token || ''}`;
+      return `${API_BASE}/hosts/${hostId}/files/stream?path=${encodeURIComponent(path)}&download=${download}&access_token=${encodeURIComponent(token || '')}`;
     },
     upload: (hostId: string, targetDir: string, file: File) => {
       const formData = new FormData();

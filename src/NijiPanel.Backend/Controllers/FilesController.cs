@@ -165,14 +165,19 @@ public class FilesController : ControllerBase
         var host = await GetHostOrNotFoundAsync(hostId);
         if (host == null) return NotFound(new { error = "Host not found" });
 
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return BadRequest(new { error = "Path is required" });
+        }
+
         try
         {
             var (stream, contentType, fileName) = await _sftpService.OpenReadStreamAsync(host, path);
             if (download)
             {
-                return File(stream, "application/octet-stream", fileName);
+                return File(stream, "application/octet-stream", fileName, enableRangeProcessing: true);
             }
-            return File(stream, contentType);
+            return File(stream, contentType, enableRangeProcessing: true);
         }
         catch (Exception ex)
         {

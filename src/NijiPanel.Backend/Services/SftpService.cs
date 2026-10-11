@@ -225,37 +225,48 @@ public class SftpService : ISftpService
         var targetPath = NormalizePath(path);
         return await Task.Run(() =>
         {
-            var sftp = _sshManager.GetSftpClient(host);
-            // Copy to MemoryStream to avoid keeping SFTP channel locked open indefinitely
-            var ms = new MemoryStream();
-            sftp.DownloadFile(targetPath, ms);
-            ms.Position = 0;
-
-            var ext = Path.GetExtension(targetPath).ToLowerInvariant();
-            var contentType = ext switch
+            var sftp = _sshManager.CreateDedicatedSftpClient(host);
+            try
             {
-                ".png" => "image/png",
-                ".jpg" or ".jpeg" => "image/jpeg",
-                ".gif" => "image/gif",
-                ".svg" => "image/svg+xml",
-                ".webp" => "image/webp",
-                ".bmp" => "image/bmp",
-                ".ico" => "image/x-icon",
-                ".mp3" => "audio/mpeg",
-                ".wav" => "audio/wav",
-                ".ogg" => "audio/ogg",
-                ".flac" => "audio/flac",
-                ".aac" => "audio/aac",
-                ".m4a" => "audio/mp4",
-                ".txt" or ".log" => "text/plain; charset=utf-8",
-                ".json" => "application/json",
-                ".yml" or ".yaml" => "text/yaml",
-                ".xml" => "application/xml",
-                ".pdf" => "application/pdf",
-                _ => "application/octet-stream"
-            };
+                var sftpStream = sftp.OpenRead(targetPath);
+                var ext = Path.GetExtension(targetPath).ToLowerInvariant();
+                var contentType = ext switch
+                {
+                    ".png" => "image/png",
+                    ".jpg" or ".jpeg" => "image/jpeg",
+                    ".gif" => "image/gif",
+                    ".svg" => "image/svg+xml",
+                    ".webp" => "image/webp",
+                    ".bmp" => "image/bmp",
+                    ".ico" => "image/x-icon",
+                    ".mp3" => "audio/mpeg",
+                    ".wav" => "audio/wav",
+                    ".ogg" => "audio/ogg",
+                    ".flac" => "audio/flac",
+                    ".aac" => "audio/aac",
+                    ".m4a" => "audio/mp4",
+                    ".txt" or ".log" => "text/plain; charset=utf-8",
+                    ".json" => "application/json",
+                    ".yml" or ".yaml" => "text/yaml",
+                    ".xml" => "application/xml",
+                    ".pdf" => "application/pdf",
+                    _ => "application/octet-stream"
+                };
 
-            return ((Stream)ms, contentType, Path.GetFileName(targetPath));
+                var fileName = Path.GetFileName(targetPath);
+                if (string.IsNullOrWhiteSpace(fileName))
+                {
+                    fileName = "download";
+                }
+
+                var dedicatedStream = new DedicatedSftpStream(sftp, sftpStream);
+                return ((Stream)dedicatedStream, contentType, fileName);
+            }
+            catch
+            {
+                try { sftp.Dispose(); } catch { }
+                throw;
+            }
         });
     }
 

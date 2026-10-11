@@ -97,7 +97,7 @@ Authorization: Bearer <your_jwt_token>
 | `POST` | `/api/hosts/{id}/files/create-folder` | Создание директории (`mkdir -p`) |
 | `DELETE`| `/api/hosts/{id}/files?path={path}` | Удаление файла или рекурсивное удаление каталога |
 | `POST` | `/api/hosts/{id}/files/rename` | Переименование или перемещение файла/каталога |
-| `GET` | `/api/hosts/{id}/files/stream?path={path}` | Потоковое скачивание или просмотр бинарных файлов |
+| `GET` | `/api/hosts/{id}/files/stream?path={path}&download={bool}&access_token={token}` | Потоковое скачивание с поддержкой HTTP Range (206 Partial Content) или встроенный просмотр медиафайлов |
 | `POST` | `/api/hosts/{id}/files/upload?targetDir={dir}` | Загрузка файла через multipart/form-data |
 | `POST` | `/api/hosts/{id}/files/direct-transfer` | Прямой rsync/scp перенос между двумя серверами флота |
 | `GET` | `/api/hosts/{id}/files/disk-usage` | Построение Treemap диска с исключением псевдо-ФС |
