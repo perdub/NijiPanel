@@ -220,7 +220,9 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
             try
             {
                 var client = GetSshClient(host);
-                using var cmd = client.CreateCommand(command);
+                // Prepend history suppression so automated panel probes never pollute user's ~/.bash_history or console history
+                var stealthCommand = $"export HISTFILE=/dev/null; export HISTSIZE=0; [ -n \"$BASH_VERSION\" ] && set +o history; {command}";
+                using var cmd = client.CreateCommand(stealthCommand);
                 cmd.CommandTimeout = TimeSpan.FromSeconds(timeoutSeconds);
                 var output = cmd.Execute();
                 return (cmd.ExitStatus ?? 0, output ?? "", cmd.Error ?? "");
@@ -371,7 +373,7 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
         swStep.Restart();
         try
         {
-            using var cmd = client.CreateCommand("echo '__nijipanel_diag_ok__'");
+            using var cmd = client.CreateCommand("export HISTFILE=/dev/null; export HISTSIZE=0; [ -n \"$BASH_VERSION\" ] && set +o history; echo '__nijipanel_diag_ok__'");
             cmd.CommandTimeout = TimeSpan.FromSeconds(5);
             var res = cmd.Execute();
             swStep.Stop();
@@ -394,7 +396,7 @@ public class SshConnectionManager : ISshConnectionManager, IDisposable
         swStep.Restart();
         try
         {
-            using var cmd = client.CreateCommand("tmux -V 2>/dev/null || echo 'no_tmux'");
+            using var cmd = client.CreateCommand("export HISTFILE=/dev/null; export HISTSIZE=0; [ -n \"$BASH_VERSION\" ] && set +o history; tmux -V 2>/dev/null || echo 'no_tmux'");
             cmd.CommandTimeout = TimeSpan.FromSeconds(4);
             var tmuxOut = cmd.Execute()?.Trim() ?? "";
             swStep.Stop();

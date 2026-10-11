@@ -413,6 +413,7 @@ public class TerminalSessionManager : ITerminalSessionManager
                 : "$HOME";
 
             var tmuxBootstrapCmd =
+                $" [ -n \"$BASH_VERSION\" ] && set +o history 2>/dev/null; " +
                 $"if command -v tmux >/dev/null 2>&1; then " +
                 $"export TERM=xterm-256color; " +
                 $"tmux set-option -g status off 2>/dev/null || true; " +

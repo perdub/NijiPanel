@@ -294,7 +294,13 @@ export const HostsView: React.FC<HostsViewProps> = ({
     }
   };
 
-  const oneLinerCommand = `mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '${masterPublicKey.trim()}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && echo 'NijiPanel key installed successfully!'`;
+  const [setupUserMode, setSetupUserMode] = useState<'dedicated' | 'root'>('dedicated');
+
+  const rootOneLiner = `mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '${masterPublicKey.trim()}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && echo 'NijiPanel key installed successfully!'`;
+
+  const dedicatedUserOneLiner = `u="nijipanel"; id -u $u >/dev/null 2>&1 || useradd -m -s /bin/bash $u 2>/dev/null; usermod -aG sudo,docker,wheel $u 2>/dev/null || true; mkdir -p /home/$u/.ssh && chmod 700 /home/$u/.ssh && echo '${masterPublicKey.trim()}' >> /home/$u/.ssh/authorized_keys && chmod 600 /home/$u/.ssh/authorized_keys && chown -R $u:$u /home/$u/.ssh && echo "$u ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$u && chmod 440 /etc/sudoers.d/$u && echo 'NijiPanel dedicated user setup successfully!'`;
+
+  const oneLinerCommand = setupUserMode === 'dedicated' ? dedicatedUserOneLiner : rootOneLiner;
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -1166,43 +1172,75 @@ export const HostsView: React.FC<HostsViewProps> = ({
         </div>
       )}
 
-      {/* One-Liner Setup Command Modal */}
+      {/* One-Liner Server Setup Command Modal */}
       {setupCommandModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-xl bg-carbon-900 border border-carbon-700 rounded-2xl shadow-2xl p-6 relative">
+          <div className="w-full max-w-xl bg-carbon-900 border border-carbon-700 shadow-2xl p-6 relative rounded-none">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-dorito-500/20 border border-dorito-500/30 flex items-center justify-center text-dorito-400">
+              <div className="p-2.5 bg-dorito-500/20 border border-dorito-500/30 flex items-center justify-center text-dorito-400">
                 <Shield className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-lg font-medium text-white">1-Click Server Setup Command</h3>
+                <h3 className="text-lg font-medium text-white font-sans">1-Click Server Setup Command</h3>
                 <p className="text-xs text-carbon-400 font-mono">
-                  Execute this command on your server to authorize NijiPanel with your master key
+                  Authorize NijiPanel master key with zero-footprint shell history suppression
                 </p>
               </div>
             </div>
 
+            {/* Mode Switcher */}
+            <div className="flex items-center gap-1 mb-3 border-b border-carbon-800 pb-2">
+              <button
+                type="button"
+                onClick={() => setSetupUserMode('dedicated')}
+                className={`px-3 py-1.5 text-xs font-mono font-medium transition-colors border ${
+                  setupUserMode === 'dedicated'
+                    ? 'bg-carbon-800 text-white border-carbon-600'
+                    : 'text-carbon-400 hover:text-white border-transparent'
+                }`}
+              >
+                Dedicated 'nijipanel' User (Clean Isolation)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSetupUserMode('root')}
+                className={`px-3 py-1.5 text-xs font-mono font-medium transition-colors border ${
+                  setupUserMode === 'root'
+                    ? 'bg-carbon-800 text-white border-carbon-600'
+                    : 'text-carbon-400 hover:text-white border-transparent'
+                }`}
+              >
+                Root / Current User
+              </button>
+            </div>
+
+            <p className="text-[11px] text-carbon-400 font-mono mb-3">
+              {setupUserMode === 'dedicated'
+                ? 'Creates a dedicated "nijipanel" user with passwordless sudo & docker privileges. Keeps your root shell history 100% untouched. (In NijiPanel, set username: nijipanel)'
+                : 'Installs the key directly into ~/.ssh/authorized_keys for root or existing user. Background panel probes execute with HISTFILE=/dev/null to prevent history pollution.'}
+            </p>
+
             <div className="relative mb-4">
-              <pre className="p-4 rounded-xl bg-black/80 border border-carbon-700 text-xs font-mono text-dorito-400 overflow-x-auto whitespace-pre-wrap break-all select-all">
+              <pre className="p-3.5 bg-black/90 border border-carbon-700 text-xs font-mono text-dorito-400 overflow-x-auto whitespace-pre-wrap break-all select-all">
                 {oneLinerCommand}
               </pre>
             </div>
 
             <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
-              <p className="text-[11px] text-carbon-400 font-mono">
-                Creates <code>~/.ssh</code>, sets safe permissions <code>700/600</code>, and appends the master key.
-              </p>
+              <span className="text-[10px] text-carbon-500 font-mono">
+                IBM Carbon 0px Rule • Key permissions 700/600 verified
+              </span>
               <div className="flex gap-2 w-full sm:w-auto">
                 <button
                   onClick={() => copyToClipboard(oneLinerCommand)}
-                  className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-xs shadow-md shadow-dorito-500/20 transition-all font-mono"
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 bg-dorito-500 hover:bg-dorito-600 text-carbon-950 font-medium text-xs font-mono transition-colors"
                 >
-                  {copied ? <Check className="w-4 h-4 text-emerald-800" /> : <Copy className="w-4 h-4" />}
+                  {copied ? <Check className="w-4 h-4 text-emerald-950" /> : <Copy className="w-4 h-4" />}
                   <span>{copied ? 'Copied!' : 'Copy Command'}</span>
                 </button>
                 <button
                   onClick={() => setSetupCommandModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl bg-carbon-850 hover:bg-carbon-800 text-carbon-300 text-xs font-medium transition-colors font-mono"
+                  className="px-4 py-2 bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-carbon-300 text-xs font-medium transition-colors font-mono"
                 >
                   Close
                 </button>
