@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Host } from '../types';
 import { DoritoLogo } from './DoritoLogo';
+import { APP_VERSION, COMMIT_HASH } from '../version';
 
 export interface SidebarProps {
   activeTab: string;
@@ -478,20 +479,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Bottom Utilities Rail */}
-        <div className="p-2 border-t border-carbon-700 bg-carbon-900/40 space-y-1.5 shrink-0">
-          {!isCollapsed && (
-            <div
-              className="flex items-center justify-between px-2.5 py-1.5 rounded bg-carbon-900 border border-carbon-700/80 text-[11px] font-mono text-carbon-300"
-              title="Kessoku Band Heartbeat: 140 BPM"
-            >
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-dorito-500" />
-                <span className="text-carbon-300 font-medium">140 BPM</span>
-              </div>
-              <span className="text-[10px] text-carbon-500 font-mono uppercase tracking-wider">SYNCED</span>
-            </div>
-          )}
-
+        <div className="p-2 border-t border-carbon-700 bg-carbon-900/40 space-y-2 shrink-0">
           {/* Quick Actions (Notifications, Settings, Logout) */}
           <div className={`flex items-center gap-1 ${isCollapsed ? 'flex-col justify-center' : 'justify-between px-1'}`}>
             <button
@@ -529,6 +517,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <LogOut className="w-4 h-4" />
             </button>
           </div>
+
+          {/* Version & Build Commit Hash */}
+          {!isCollapsed ? (
+            <div className="px-1 pt-1.5 border-t border-carbon-800/80 flex items-center justify-between text-[10px] font-mono text-carbon-500 select-all">
+              <span className="text-carbon-400">{APP_VERSION}</span>
+              <span className="hover:text-dorito-400 transition-colors" title={`Git Commit: ${COMMIT_HASH}`}>
+                #{COMMIT_HASH}
+              </span>
+            </div>
+          ) : (
+            <div className="text-[9px] font-mono text-carbon-500 text-center tracking-tighter" title={`${APP_VERSION} (${COMMIT_HASH})`}>
+              #{COMMIT_HASH.slice(0, 4)}
+            </div>
+          )}
         </div>
       </aside>
     </>
