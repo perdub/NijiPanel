@@ -217,6 +217,22 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
         },
       });
 
+      // Debounced safe paste helper to eliminate double-paste on Ctrl+V
+      let lastPasteText = '';
+      let lastPasteTime = 0;
+
+      const safePaste = (text: string) => {
+        if (!text) return;
+        const now = Date.now();
+        if (text === lastPasteText && now - lastPasteTime < 350) {
+          return;
+        }
+        lastPasteText = text;
+        lastPasteTime = now;
+        term.paste(text);
+        term.focus();
+      };
+
       // Keyboard handler: solve Ctrl+C (copy vs SIGINT) and Ctrl+V (paste without 0x16 quoted-insert)
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         // 1. Copy on Ctrl+C / Cmd+C (if there is selected text)
@@ -243,13 +259,16 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
         // 3. Paste on Ctrl+V / Cmd+V / Ctrl+Shift+V
         if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) {
           if (e.type === 'keydown') {
-            navigator.clipboard.readText().then((text) => {
-              if (text) {
-                term.paste(text);
+            const triggerTime = Date.now();
+            setTimeout(() => {
+              if (lastPasteTime < triggerTime) {
+                navigator.clipboard.readText().then((text) => {
+                  if (text) safePaste(text);
+                }).catch(() => {});
               }
-            }).catch(() => {});
+            }, 60);
           }
-          return false; // CRITICAL: Stop xterm from emitting 0x16 (which puts readline in quoted-insert and causes ~]]200!)
+          return false; // Stop xterm from emitting 0x16 (which puts readline in quoted-insert and causes ~]]200!)
         }
 
         return true;
@@ -276,8 +295,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
           try {
             const text = await navigator.clipboard.readText();
             if (text) {
-              term.paste(text);
-              term.focus();
+              safePaste(text);
             }
           } catch { }
         }
@@ -289,8 +307,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
         e.preventDefault();
         const text = e.clipboardData?.getData('text');
         if (text) {
-          term.paste(text);
-          term.focus();
+          safePaste(text);
         }
       };
       containerEl.addEventListener('paste', handlePaste);
