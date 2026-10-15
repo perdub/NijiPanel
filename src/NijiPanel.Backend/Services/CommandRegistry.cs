@@ -228,12 +228,6 @@ public class CommandRegistry : ICommandRegistry
 
     private static string ReplacePlaceholder(string template, string placeholderName, string value)
     {
-        // Replace {placeholderName} case-insensitively
-        return Regex.Replace(
-            template,
-            @"\{" + Regex.Escape(placeholderName) + @"\}",
-            value,
-            RegexOptions.IgnoreCase
-        );
+        return template.Replace($"{{{placeholderName}}}", value, StringComparison.OrdinalIgnoreCase);
     }
 }

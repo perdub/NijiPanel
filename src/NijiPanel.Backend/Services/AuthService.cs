@@ -28,7 +28,12 @@ public class AuthService : IAuthService
         var jwtSecret = configuration["JWT_SECRET"];
         if (string.IsNullOrWhiteSpace(jwtSecret))
         {
-            var secretFile = Path.Combine(AppContext.BaseDirectory, "data", "jwt.key");
+            var dbPath = configuration["DATABASE_PATH"];
+            var dataDir = !string.IsNullOrWhiteSpace(dbPath)
+                ? (Path.GetDirectoryName(dbPath) ?? Path.Combine(AppContext.BaseDirectory, "data"))
+                : Path.Combine(AppContext.BaseDirectory, "data");
+
+            var secretFile = Path.Combine(dataDir, "jwt.key");
             Directory.CreateDirectory(Path.GetDirectoryName(secretFile)!);
             if (File.Exists(secretFile))
             {
@@ -36,10 +41,20 @@ public class AuthService : IAuthService
             }
             else
             {
-                var randomBytes = new byte[64];
-                RandomNumberGenerator.Fill(randomBytes);
-                jwtSecret = Convert.ToBase64String(randomBytes);
-                File.WriteAllText(secretFile, jwtSecret);
+                // Check legacy path in AppContext
+                var legacySecret = Path.Combine(AppContext.BaseDirectory, "data", "jwt.key");
+                if (File.Exists(legacySecret))
+                {
+                    jwtSecret = File.ReadAllText(legacySecret).Trim();
+                    try { File.WriteAllText(secretFile, jwtSecret); } catch { }
+                }
+                else
+                {
+                    var randomBytes = new byte[64];
+                    RandomNumberGenerator.Fill(randomBytes);
+                    jwtSecret = Convert.ToBase64String(randomBytes);
+                    File.WriteAllText(secretFile, jwtSecret);
+                }
             }
         }
         _jwtKey = Encoding.UTF8.GetBytes(jwtSecret.PadRight(64, '!')[..64]);

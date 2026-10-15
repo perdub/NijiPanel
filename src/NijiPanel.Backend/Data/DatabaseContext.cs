@@ -25,7 +25,7 @@ public class DatabaseContext
             }
         }
 
-        _connectionString = $"Data Source={dbPath};";
+        _connectionString = $"Data Source={dbPath};Foreign Keys=True;Pooling=True;";
         InitializeDatabase();
     }
 
@@ -145,6 +145,26 @@ public class DatabaseContext
                 is_custom INTEGER NOT NULL DEFAULT 0,
                 updated_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS metrics_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                host_id TEXT NOT NULL,
+                recorded_at TEXT NOT NULL,
+                cpu REAL NOT NULL,
+                ram REAL NOT NULL,
+                net_rx REAL NOT NULL,
+                net_tx REAL NOT NULL,
+                disk REAL NOT NULL,
+                FOREIGN KEY(host_id) REFERENCES hosts(id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_host_ports_host_id ON host_ports(host_id);
+            CREATE INDEX IF NOT EXISTS idx_host_notes_host_id ON host_notes(host_id);
+            CREATE INDEX IF NOT EXISTS idx_ssh_tunnels_host_id ON ssh_tunnels(host_id);
+            CREATE INDEX IF NOT EXISTS idx_shared_files_host_id ON shared_files(host_id);
+            CREATE INDEX IF NOT EXISTS idx_notifications_host_id ON notifications(host_id);
+            CREATE INDEX IF NOT EXISTS idx_passkeys_user_id ON passkeys(user_id);
+            CREATE INDEX IF NOT EXISTS idx_metrics_history_host_id ON metrics_history(host_id);
         ";
         cmd.ExecuteNonQuery();
 

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using NijiPanel.Backend.Data;
 using NijiPanel.Backend.Models;
 
 namespace NijiPanel.Backend.Services;
@@ -13,29 +14,60 @@ public interface IMetricsHistoryService
 public class MetricsHistoryService : IMetricsHistoryService
 {
     private const int MaxSamples = 60;
+    private readonly DatabaseContext _dbContext;
     private readonly ConcurrentDictionary<string, List<MetricDataPoint>> _history = new();
     private readonly ConcurrentDictionary<string, (long LastRxBytes, long LastTxBytes, DateTime LastTime)> _netCounters = new();
     private readonly object _lock = new();
 
+    public MetricsHistoryService(DatabaseContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
     public void RecordSample(string hostId, double cpu, double ram, double netRxKbps, double netTxKbps, double diskPercent)
     {
+        var sample = new MetricDataPoint(
+            DateTime.UtcNow,
+            Math.Clamp(Math.Round(cpu, 1), 0, 100),
+            Math.Clamp(Math.Round(ram, 1), 0, 100),
+            Math.Max(0, Math.Round(netRxKbps, 1)),
+            Math.Max(0, Math.Round(netTxKbps, 1)),
+            Math.Clamp(Math.Round(diskPercent, 1), 0, 100)
+        );
+
         lock (_lock)
         {
             var list = _history.GetOrAdd(hostId, _ => new List<MetricDataPoint>());
-            list.Add(new MetricDataPoint(
-                DateTime.UtcNow,
-                Math.Clamp(Math.Round(cpu, 1), 0, 100),
-                Math.Clamp(Math.Round(ram, 1), 0, 100),
-                Math.Max(0, Math.Round(netRxKbps, 1)),
-                Math.Max(0, Math.Round(netTxKbps, 1)),
-                Math.Clamp(Math.Round(diskPercent, 1), 0, 100)
-            ));
+            list.Add(sample);
 
             if (list.Count > MaxSamples)
             {
                 list.RemoveAt(0);
             }
         }
+
+        // Persist asynchronously to SQLite metrics_history table
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                using var conn = _dbContext.CreateConnection();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"
+                    INSERT INTO metrics_history (host_id, recorded_at, cpu, ram, net_rx, net_tx, disk)
+                    VALUES ($host_id, $recorded_at, $cpu, $ram, $net_rx, $net_tx, $disk);
+                ";
+                cmd.Parameters.AddWithValue("$host_id", hostId);
+                cmd.Parameters.AddWithValue("$recorded_at", sample.Timestamp.ToString("o"));
+                cmd.Parameters.AddWithValue("$cpu", sample.CpuPercent);
+                cmd.Parameters.AddWithValue("$ram", sample.RamPercent);
+                cmd.Parameters.AddWithValue("$net_rx", sample.NetRxKbps);
+                cmd.Parameters.AddWithValue("$net_tx", sample.NetTxKbps);
+                cmd.Parameters.AddWithValue("$disk", sample.DiskPercent);
+                cmd.ExecuteNonQuery();
+            }
+            catch { }
+        });
     }
 
     public void RecordFromStats(string hostId, HostSystemStats stats)
@@ -96,14 +128,54 @@ public class MetricsHistoryService : IMetricsHistoryService
             }
             else
             {
-                // Seed smooth initial points based on fallback stats if available
-                points = GenerateInitialPoints(fallbackStats);
-                _history[hostId] = new List<MetricDataPoint>(points);
+                points = LoadRecentFromDb(hostId);
+                if (points.Count > 0)
+                {
+                    _history[hostId] = new List<MetricDataPoint>(points);
+                }
+                else
+                {
+                    // Seed smooth initial points based on fallback stats if available
+                    points = GenerateInitialPoints(fallbackStats);
+                    _history[hostId] = new List<MetricDataPoint>(points);
+                }
             }
         }
 
         var prediction = CalculateDiskFillPrediction(points);
         return new HostMetricsHistoryResponse(hostId, prediction, points);
+    }
+
+    private List<MetricDataPoint> LoadRecentFromDb(string hostId)
+    {
+        var result = new List<MetricDataPoint>();
+        try
+        {
+            using var conn = _dbContext.CreateConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT recorded_at, cpu, ram, net_rx, net_tx, disk
+                FROM metrics_history
+                WHERE host_id = $host_id
+                ORDER BY id DESC
+                LIMIT 60;
+            ";
+            cmd.Parameters.AddWithValue("$host_id", hostId);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var ts = DateTime.Parse(reader.GetString(0));
+                var cpu = reader.GetDouble(1);
+                var ram = reader.GetDouble(2);
+                var rx = reader.GetDouble(3);
+                var tx = reader.GetDouble(4);
+                var disk = reader.GetDouble(5);
+                result.Add(new MetricDataPoint(ts, cpu, ram, rx, tx, disk));
+            }
+            result.Reverse();
+        }
+        catch { }
+        return result;
     }
 
     private DiskFillPrediction CalculateDiskFillPrediction(List<MetricDataPoint> points)

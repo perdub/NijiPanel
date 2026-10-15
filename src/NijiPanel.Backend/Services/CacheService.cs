@@ -17,7 +17,7 @@ public class CacheService : ICacheService
 {
     private readonly IMemoryCache _memoryCache;
     private readonly ILogger<CacheService> _logger;
-    private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new();
+    private readonly ConcurrentDictionary<string, Lazy<Task<object?>>> _inFlightTasks = new();
     private readonly ConcurrentDictionary<string, byte> _trackedKeys = new();
 
     public CacheService(IMemoryCache memoryCache, ILogger<CacheService> logger)
@@ -62,31 +62,30 @@ public class CacheService : ICacheService
             return cachedValue;
         }
 
-        // 2. Slow path with per-key semaphore to prevent cache stampedes / thundering herds
-        var sem = _locks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
-        await sem.WaitAsync();
-        try
+        // 2. Slow path with single in-flight factory execution per key
+        var lazyTask = _inFlightTasks.GetOrAdd(key, k => new Lazy<Task<object?>>(async () =>
         {
-            // Double check after lock
-            if (_memoryCache.TryGetValue(key, out cachedValue) && cachedValue != null)
+            if (_memoryCache.TryGetValue(k, out T? existing) && existing != null)
             {
-                return cachedValue;
+                return (object?)existing;
             }
 
             var value = await factory();
             if (value != null)
             {
-                Set(key, value, ttl);
+                Set(k, value, ttl);
             }
-            return value;
+            return (object?)value;
+        }));
+
+        try
+        {
+            var result = await lazyTask.Value;
+            return (T)result!;
         }
         finally
         {
-            sem.Release();
-            if (sem.CurrentCount == 1)
-            {
-                _locks.TryRemove(key, out _);
-            }
+            _inFlightTasks.TryRemove(new KeyValuePair<string, Lazy<Task<object?>>>(key, lazyTask));
         }
     }
 

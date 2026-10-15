@@ -45,7 +45,12 @@ builder.Services.AddSingleton<ICommandRegistry, CommandRegistry>();
 var jwtSecret = builder.Configuration["JWT_SECRET"];
 if (string.IsNullOrWhiteSpace(jwtSecret))
 {
-    var secretFile = Path.Combine(AppContext.BaseDirectory, "data", "jwt.key");
+    var dbPath = builder.Configuration["DATABASE_PATH"];
+    var dataDir = !string.IsNullOrWhiteSpace(dbPath)
+        ? (Path.GetDirectoryName(dbPath) ?? Path.Combine(AppContext.BaseDirectory, "data"))
+        : Path.Combine(AppContext.BaseDirectory, "data");
+
+    var secretFile = Path.Combine(dataDir, "jwt.key");
     Directory.CreateDirectory(Path.GetDirectoryName(secretFile)!);
     if (File.Exists(secretFile))
     {
@@ -53,10 +58,19 @@ if (string.IsNullOrWhiteSpace(jwtSecret))
     }
     else
     {
-        var randomBytes = new byte[64];
-        System.Security.Cryptography.RandomNumberGenerator.Fill(randomBytes);
-        jwtSecret = Convert.ToBase64String(randomBytes);
-        File.WriteAllText(secretFile, jwtSecret);
+        var legacySecret = Path.Combine(AppContext.BaseDirectory, "data", "jwt.key");
+        if (File.Exists(legacySecret))
+        {
+            jwtSecret = File.ReadAllText(legacySecret).Trim();
+            try { File.WriteAllText(secretFile, jwtSecret); } catch { }
+        }
+        else
+        {
+            var randomBytes = new byte[64];
+            System.Security.Cryptography.RandomNumberGenerator.Fill(randomBytes);
+            jwtSecret = Convert.ToBase64String(randomBytes);
+            File.WriteAllText(secretFile, jwtSecret);
+        }
     }
 }
 var jwtKey = Encoding.UTF8.GetBytes(jwtSecret.PadRight(64, '!')[..64]);
@@ -101,6 +115,8 @@ builder.Services.AddControllers();
 // Add CORS for development
 builder.Services.AddCors(options =>
 {
+
+
     options.AddPolicy("AllowAll", policy =>
     {
         policy.AllowAnyOrigin()

@@ -39,7 +39,7 @@ public class HostExtrasController : ControllerBase
     [HttpDelete("ports/{portId}")]
     public async Task<ActionResult> DeletePort(string hostId, string portId)
     {
-        var deleted = await _extrasService.DeletePortAsync(portId);
+        var deleted = await _extrasService.DeletePortAsync(hostId, portId);
         return Ok(new { success = deleted });
     }
 

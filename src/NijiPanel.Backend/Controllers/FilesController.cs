@@ -199,7 +199,8 @@ public class FilesController : ControllerBase
 
         try
         {
-            var destination = Path.Combine(targetDir.Replace('\\', '/'), file.FileName).Replace('\\', '/');
+            var safeFileName = Path.GetFileName(file.FileName);
+            var destination = Path.Combine(targetDir.Replace('\\', '/'), safeFileName).Replace('\\', '/');
             using var stream = file.OpenReadStream();
             await _sftpService.UploadAsync(host, destination, stream);
             return Ok(new { success = true, path = destination, size = file.Length });
@@ -289,8 +290,16 @@ public class FilesController : ControllerBase
                 }
             }
 
-            // Fallback total size to sum of subdirectories if not directly parsed
-            var totalBytes = (totalSizeKb ?? (rawItems.Count > 0 ? rawItems.Sum(r => r.sizeKb) : 0L)) * 1024L;
+            // Calculate item depth and avoid double-counting parent directories with their subdirectories
+            var rootSegments = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+            // Fallback total size: sum ONLY direct children (depth 1) if root total was not directly output
+            var totalBytes = (totalSizeKb ?? (rawItems.Count > 0
+                ? rawItems.Where(r => {
+                    var segs = r.entryPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                    return Math.Max(1, segs.Length - rootSegments.Length) == 1;
+                }).Sum(r => r.sizeKb)
+                : 0L)) * 1024L;
 
             var itemsList = new List<DiskUsageItemDto>();
             foreach (var (sizeKb, entryPath) in rawItems)
@@ -302,7 +311,6 @@ public class FilesController : ControllerBase
                 var percent = totalBytes > 0 ? Math.Round((double)sizeBytes / totalBytes * 100, 1) : 0;
                 
                 var pathSegments = entryPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-                var rootSegments = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
                 var itemDepth = Math.Max(1, pathSegments.Length - rootSegments.Length);
 
                 itemsList.Add(new DiskUsageItemDto(entryPath, name, sizeBytes, percent, itemDepth));

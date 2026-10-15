@@ -40,16 +40,16 @@ public class BenchmarkService : IBenchmarkService
         }
 
         // Parse CPU
-        double cpuMBps = 150.0;
-        long cpuOps = 500_000;
-        string cpuFormatted = "150 MB/s";
+        double cpuMBps = 0.0;
+        long cpuOps = 0;
+        string cpuFormatted = "N/A";
         var cpuSection = ExtractSection(output, "CPU");
         if (!string.IsNullOrEmpty(cpuSection))
         {
-            var match = Regex.Match(cpuSection, @"([0-9.]+)\s*([kKMmGg]?)b?\/s|(\d+\.?\d*)\s*k", RegexOptions.IgnoreCase);
+            var match = Regex.Match(cpuSection, @"([0-9]+[.,]?[0-9]*)\s*([kKMmGg]?)b?\/s|(\d+[.,]?\d*)\s*k", RegexOptions.IgnoreCase);
             if (match.Success)
             {
-                var numStr = match.Groups[1].Success ? match.Groups[1].Value : match.Groups[3].Value;
+                var numStr = (match.Groups[1].Success ? match.Groups[1].Value : match.Groups[3].Value).Replace(',', '.');
                 if (double.TryParse(numStr, CultureInfo.InvariantCulture, out var val))
                 {
                     if (cpuSection.Contains('k', StringComparison.OrdinalIgnoreCase))
@@ -67,16 +67,17 @@ public class BenchmarkService : IBenchmarkService
         }
 
         // Parse DISK
-        double diskMBps = 250.0;
-        string diskFormatted = "250 MB/s";
+        double diskMBps = 0.0;
+        string diskFormatted = "N/A";
         var diskSection = ExtractSection(output, "DISK");
         if (!string.IsNullOrEmpty(diskSection))
         {
-            // E.g.: "268 MB/s" or "1.2 GB/s" or "54.2 MB/s"
-            var match = Regex.Match(diskSection, @"([0-9.]+)\s*([MGK]B\/s|MB\/s|GB\/s|kB\/s)", RegexOptions.IgnoreCase);
+            // E.g.: "268 MB/s" or "1.2 GB/s" or "54.2 MB/s" or "250,4 MB/s"
+            var match = Regex.Match(diskSection, @"([0-9]+[.,]?[0-9]*)\s*([MGK]B\/s|MB\/s|GB\/s|kB\/s)", RegexOptions.IgnoreCase);
             if (match.Success)
             {
-                if (double.TryParse(match.Groups[1].Value, CultureInfo.InvariantCulture, out var dval))
+                var numStr = match.Groups[1].Value.Replace(',', '.');
+                if (double.TryParse(numStr, CultureInfo.InvariantCulture, out var dval))
                 {
                     var unit = match.Groups[2].Value.ToUpperInvariant();
                     if (unit.StartsWith("GB"))
@@ -97,17 +98,21 @@ public class BenchmarkService : IBenchmarkService
         }
 
         // Parse PING
-        double pingAvgMs = 25.0;
-        string pingFormatted = "25 ms";
+        double pingAvgMs = 0.0;
+        string pingFormatted = "N/A";
         var pingSection = ExtractSection(output, "PING");
         if (!string.IsNullOrEmpty(pingSection))
         {
             // rtt min/avg/max/mdev = 12.345/14.567/18.910/2.123 ms
-            var match = Regex.Match(pingSection, @"=\s*([0-9.]+)\/([0-9.]+)\/([0-9.]+)", RegexOptions.IgnoreCase);
-            if (match.Success && double.TryParse(match.Groups[2].Value, CultureInfo.InvariantCulture, out var pAvg))
+            var match = Regex.Match(pingSection, @"=\s*([0-9]+[.,]?[0-9]*)\/([0-9]+[.,]?[0-9]*)\/([0-9]+[.,]?[0-9]*)", RegexOptions.IgnoreCase);
+            if (match.Success)
             {
-                pingAvgMs = Math.Round(pAvg, 1);
-                pingFormatted = $"{pingAvgMs} ms";
+                var numStr = match.Groups[2].Value.Replace(',', '.');
+                if (double.TryParse(numStr, CultureInfo.InvariantCulture, out var pAvg))
+                {
+                    pingAvgMs = Math.Round(pAvg, 1);
+                    pingFormatted = $"{pingAvgMs} ms";
+                }
             }
         }
 
@@ -120,7 +125,8 @@ public class BenchmarkService : IBenchmarkService
             >= 250 => 30,
             >= 100 => 22,
             >= 50 => 16,
-            _ => 10
+            > 0 => 10,
+            _ => 0
         };
 
         // CPU score (0-40)
@@ -130,12 +136,14 @@ public class BenchmarkService : IBenchmarkService
             >= 400 => 35,
             >= 200 => 28,
             >= 100 => 20,
-            _ => 12
+            > 0 => 12,
+            _ => 0
         };
 
         // Ping score (0-20)
         int pingScore = pingAvgMs switch
         {
+            <= 0 => 0,
             <= 10 => 20,
             <= 25 => 18,
             <= 50 => 15,
@@ -144,7 +152,7 @@ public class BenchmarkService : IBenchmarkService
             _ => 2
         };
 
-        int totalScore = Math.Clamp(diskScore + cpuScore + pingScore, 10, 100);
+        int totalScore = Math.Clamp(diskScore + cpuScore + pingScore, 0, 100);
         var now = DateTime.UtcNow;
         var summary = $"Score {totalScore}/100 (Disk: {diskFormatted}, CPU: {cpuFormatted}, Ping: {pingFormatted})";
 

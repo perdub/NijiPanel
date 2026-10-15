@@ -18,6 +18,7 @@ public class HostsController : ControllerBase
     private readonly INotificationService _notificationService;
     private readonly IHostNetworkService _networkService;
     private readonly IConnectionLogService _logService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<HostsController> _logger;
 
     public HostsController(
@@ -29,6 +30,7 @@ public class HostsController : ControllerBase
         INotificationService notificationService,
         IHostNetworkService networkService,
         IConnectionLogService logService,
+        IServiceScopeFactory scopeFactory,
         ILogger<HostsController> logger)
     {
         _hostService = hostService;
@@ -39,6 +41,7 @@ public class HostsController : ControllerBase
         _notificationService = notificationService;
         _networkService = networkService;
         _logService = logService;
+        _scopeFactory = scopeFactory;
         _logger = logger;
     }
 
@@ -77,13 +80,18 @@ public class HostsController : ControllerBase
             {
                 try
                 {
-                    var hostEntity = await _hostService.GetHostEntityAsync(created.Id);
+                    await using var scope = _scopeFactory.CreateAsyncScope();
+                    var hostSvc = scope.ServiceProvider.GetRequiredService<IHostService>();
+                    var notifySvc = scope.ServiceProvider.GetRequiredService<INotificationService>();
+                    var sshMgr = scope.ServiceProvider.GetRequiredService<ISshConnectionManager>();
+
+                    var hostEntity = await hostSvc.GetHostEntityAsync(created.Id);
                     if (hostEntity != null)
                     {
                         var sanitizedScript = bootstrapScript.Replace("\r\n", "\n");
-                        var cmdResult = await _sshManager.RunCommandAsync(hostEntity, sanitizedScript, 300);
+                        var cmdResult = await sshMgr.RunCommandAsync(hostEntity, sanitizedScript, 300);
                         
-                        await _notificationService.CreateNotificationAsync(
+                        await notifySvc.CreateNotificationAsync(
                             $"Bootstrap completed for {created.Name}",
                             $"Provisioning packages/setup script completed successfully.\nExit code: {cmdResult.ExitCode}",
                             cmdResult.ExitCode == 0 ? "info" : "warning",
@@ -94,12 +102,18 @@ public class HostsController : ControllerBase
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Bootstrap execution failed for host {HostId}", created.Id);
-                    await _notificationService.CreateNotificationAsync(
-                        $"Bootstrap failed for {created.Name}",
-                        $"Error executing provisioning script: {ex.Message}",
-                        "error",
-                        created.Id
-                    );
+                    try
+                    {
+                        await using var scope = _scopeFactory.CreateAsyncScope();
+                        var notifySvc = scope.ServiceProvider.GetRequiredService<INotificationService>();
+                        await notifySvc.CreateNotificationAsync(
+                            $"Bootstrap failed for {created.Name}",
+                            $"Error executing provisioning script: {ex.Message}",
+                            "error",
+                            created.Id
+                        );
+                    }
+                    catch { }
                 }
             });
         }
@@ -189,26 +203,11 @@ public class HostsController : ControllerBase
         var host = await _hostService.GetHostEntityAsync(id);
         if (host == null) return NotFound(new { error = "Host not found" });
 
-        HostSystemStats? stats = null;
-        try
-        {
-            stats = await _sshManager.GetHostStatsAsync(host);
-            if (stats.IsOnline)
-            {
-                _metricsService.RecordFromStats(id, stats);
-            }
-        }
-        catch
-        {
-            // Ignore stats failure, fallback to existing buffer
-        }
-
-        var history = _metricsService.GetHistory(id, stats);
+        var history = _metricsService.GetHistory(id);
         return Ok(history);
     }
 
     [HttpPost("{id}/benchmark")]
-    [HttpGet("{id}/benchmark")]
     public async Task<ActionResult<BenchmarkResultDto>> RunBenchmark(string id)
     {
         var host = await _hostService.GetHostEntityAsync(id);

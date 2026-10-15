@@ -39,21 +39,21 @@ public class TunnelsController : ControllerBase
     [HttpDelete("{tunnelId}")]
     public async Task<ActionResult> DeleteTunnel(string hostId, string tunnelId)
     {
-        var deleted = await _tunnelService.DeleteTunnelAsync(tunnelId);
+        var deleted = await _tunnelService.DeleteTunnelAsync(tunnelId, hostId);
         return Ok(new { success = deleted });
     }
 
     [HttpPost("{tunnelId}/start")]
     public async Task<ActionResult> StartTunnel(string hostId, string tunnelId)
     {
-        var (success, error) = await _tunnelService.StartTunnelAsync(tunnelId);
+        var (success, error) = await _tunnelService.StartTunnelAsync(tunnelId, hostId);
         return Ok(new { success, error });
     }
 
     [HttpPost("{tunnelId}/stop")]
     public async Task<ActionResult> StopTunnel(string hostId, string tunnelId)
     {
-        var stopped = await _tunnelService.StopTunnelAsync(tunnelId);
+        var stopped = await _tunnelService.StopTunnelAsync(tunnelId, hostId);
         return Ok(new { success = stopped });
     }
 }

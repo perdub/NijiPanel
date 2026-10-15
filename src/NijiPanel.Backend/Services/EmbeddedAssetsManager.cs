@@ -43,7 +43,18 @@ public static class EmbeddedAssetsManager
             Directory.CreateDirectory(targetDir);
         }
 
-        ExtractEmbeddedWebRoot(targetDir, logger);
+        var versionFile = Path.Combine(targetDir, ".version");
+        var asm = typeof(EmbeddedAssetsManager).Assembly;
+        var currentVersion = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion 
+            ?? asm.GetName().Version?.ToString() 
+            ?? "1.0.0";
+
+        if (!File.Exists(versionFile) || File.ReadAllText(versionFile).Trim() != currentVersion)
+        {
+            ExtractEmbeddedWebRoot(targetDir, logger);
+            try { File.WriteAllText(versionFile, currentVersion); } catch { }
+        }
+
         return targetDir;
     }
 

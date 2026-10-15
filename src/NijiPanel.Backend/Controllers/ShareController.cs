@@ -113,13 +113,21 @@ public class ShareController : ControllerBase
     // Public download endpoint - zero authentication required!
     [AllowAnonymous]
     [HttpGet("d/{token}")]
+    [HttpPost("d/{token}")]
     public async Task<IActionResult> DownloadSharedFile(
         string token,
         [FromQuery] string? password = null,
+        [FromForm(Name = "password")] string? formPassword = null,
         [FromHeader(Name = "X-Share-Password")] string? headerPassword = null)
     {
-        var effectivePassword = password ?? headerPassword;
-        var validation = await _shareService.ValidateAndRecordDownloadAsync(token, effectivePassword);
+        var effectivePassword = password ?? formPassword ?? headerPassword;
+        var isHead = HttpMethods.IsHead(Request.Method);
+        var rangeHeader = Request.Headers.Range.ToString();
+        var isPartialContinuation = !string.IsNullOrEmpty(rangeHeader) && !rangeHeader.StartsWith("bytes=0-", StringComparison.OrdinalIgnoreCase);
+
+        // Record download count only for initial full request / first chunk
+        var recordDownload = !isHead && !isPartialContinuation;
+        var validation = await _shareService.ValidateAndRecordDownloadAsync(token, effectivePassword, recordDownload);
 
         var acceptsHtml = Request.Headers.Accept.ToString().Contains("text/html");
 
@@ -158,8 +166,8 @@ public class ShareController : ControllerBase
 
         try
         {
-            var (stream, contentType, _) = await _sftpService.OpenReadStreamAsync(host, filePath);
-            return File(stream, contentType, fileName);
+            var res = await _sftpService.OpenReadStreamAsync(host, filePath);
+            return File(res.Stream, res.ContentType, fileName, enableRangeProcessing: true);
         }
         catch (Exception ex)
         {
@@ -291,7 +299,7 @@ public class ShareController : ControllerBase
     <h1>Password Required</h1>
     <p>This file is protected by a password. Please enter the password to download.</p>
     {errorMessageHtml}
-    <form method=""GET"" action=""/d/{encodedToken}"">
+    <form method=""POST"" action=""/d/{encodedToken}"">
       <input type=""password"" name=""password"" placeholder=""Enter download password"" autofocus required />
       <button type=""submit"">Unlock & Download File</button>
     </form>

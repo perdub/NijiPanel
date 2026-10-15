@@ -211,6 +211,17 @@ Authorization: Bearer <your_jwt_token>
 
 ---
 
+### 14. SSH Терминал & WebSockets
+
+| Метод | Путь | Описание |
+| :--- | :--- | :--- |
+| `GET` | `/api/hosts/{hostId}/terminal/sessions` | Список активных интерактивных PTY-сессий для указанного хоста |
+| `DELETE` | `/api/terminal/sessions/{sessionId}` | Закрытие PTY-сессии и освобождение связанных дескрипторов |
+| `WS` | `/ws/terminal?hostId={id}&sessionId={sid}&cols={c}&rows={r}` | Двунаправленный бинарный WebSocket-канал к PTY хоста или контейнера |
+| `WS` | `/ws/docker-exec?hostId={id}&containerId={cid}&cols={c}&rows={r}` | Двунаправленный бинарный WebSocket-канал интерактивного exec в контейнер |
+
+---
+
 ## 💻 Примеры запросов cURL
 
 ### 1. Получение оперативной телеметрии сервера

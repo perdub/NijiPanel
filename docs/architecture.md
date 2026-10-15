@@ -50,7 +50,7 @@ flowchart TD
     CachingLayer --> CoreServices
     CoreServices --> DB
     ConnMgr -->|Native SSH Protocol| Fleet
-    TermMgr -->|Multiplexed tmux PTY| Fleet
+    TermMgr -->|Direct ShellStream PTY| Fleet
     SftpSvc -->|SFTP Channel| Fleet
 ```
 
@@ -89,16 +89,18 @@ flowchart TD
 
 ---
 
-## 💻 3. SSH Terminal & Серверные tmux сессии
+## 💻 3. SSH Terminal & Persistent Backend PTY сессии
 
-Модуль терминала построен на гибридной модели WebSocket PTY и удаленного менеджера сессий **tmux**:
+Модуль терминала построен на модели прямого WebSocket PTY и персистентного менеджера сессий `TerminalSessionManager` в .NET 10:
 
-* **Удаленная живучесть сессий:**  
-  При открытии вкладки на целевом хосте создается или восстанавливается именованная сессия tmux (`nijipanel_tab_<index>`). Если у пользователя оборвется интернет, перезагрузится браузер или закроется вкладка — **процессы на сервере не прерываются**. При повторном открытии вкладки терминал мгновенно ре-аттачится к активному сеансу.
+* **Живучесть сессий на бэкенде (Agentless Persistence):**  
+  При открытии вкладки бэкенд создает и удерживает открытый `ShellStream` напрямую в памяти. Если у пользователя оборвется интернет, перезагрузится браузер или закроется вкладка — **процессы на сервере не прерываются**, а вывод продолжает поступать в буфер сессии. При повторном открытии вкладки терминал мгновенно ре-аттачится к активному каналу.
+* **Бинарный протокол Zero-Allocation:**  
+  Пакеты передаются через `WebSocketMessageType.Binary` с префиксами `0x00` (данные), `0x01` (ресайз) и `0x02` (скроллбэк), исключая оверхед JSON-сериализации.
 * **Кольцевой буфер скроллбэка (256 КБ):**  
-  На стороне бэкенда ведется кольцевой буфер последних байтов вывода. При подключении нового WebSocket-клиента вся история экрана мгновенно рендерится в xterm.js без потерь.
+  На стороне бэкенда ведется кольцевой буфер чанков вывода. При подключении нового WebSocket-клиента история экрана мгновенно передается в `xterm.js` как `Uint8Array`, исключая разрыв многобайтовых символов UTF-8.
 * **Отслеживание реального CWD (Current Working Directory):**  
-  NijiPanel перехватывает управляющие последовательности ANSI/OSC 7 и запрашивает текущий путь активного процесса через tmux (`#{pane_current_path}`), отображая актуальный каталог прямо в заголовке вкладки.
+  NijiPanel считывает текущий каталог из заголовка окна оболочки / последовательностей OSC 7 на клиенте, не создавая паразитной нагрузки на SSH.
 * **Буфер обмена и Bracketed Paste:**  
   Поддержка безопасной вставки больших многострочных скриптов без риска случайного преждевременного выполнения строк.
 
@@ -116,23 +118,25 @@ public async Task<T> GetOrCreateAsync<T>(string key, Func<Task<T>> factory, Time
     if (_memoryCache.TryGetValue(key, out T? cachedValue) && cachedValue != null)
         return cachedValue;
 
-    // 2. Медленный путь с индивидуальным семафором для предотвращения Stampede
-    var sem = _locks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
-    await sem.WaitAsync();
-    try
+    // 2. Медленный путь с единичным выполнением задачи на ключ
+    var lazyTask = _inFlightTasks.GetOrAdd(key, k => new Lazy<Task<object?>>(async () =>
     {
-        // Повторная проверка после захвата блокировки
-        if (_memoryCache.TryGetValue(key, out cachedValue) && cachedValue != null)
-            return cachedValue;
+        if (_memoryCache.TryGetValue(k, out T? existing) && existing != null)
+            return (object?)existing;
 
         var value = await factory();
-        if (value != null) Set(key, value, ttl);
-        return value;
+        if (value != null) Set(k, value, ttl);
+        return (object?)value;
+    }));
+
+    try
+    {
+        var result = await lazyTask.Value;
+        return (T)result!;
     }
     finally
     {
-        sem.Release();
-        if (sem.CurrentCount == 1) _locks.TryRemove(key, out _);
+        _inFlightTasks.TryRemove(new KeyValuePair<string, Lazy<Task<object?>>>(key, lazyTask));
     }
 }
 ```

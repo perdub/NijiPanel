@@ -42,8 +42,9 @@ public interface IConnectionLogService
 public class ConnectionLogService : IConnectionLogService
 {
     private const int MaxLogCapacity = 500;
-    private readonly object _lock = new();
-    private readonly LinkedList<ConnectionLogEntry> _logs = new();
+    private const int MaxHostLogCapacity = 100;
+    private readonly ConcurrentQueue<ConnectionLogEntry> _allLogs = new();
+    private readonly ConcurrentDictionary<string, ConcurrentQueue<ConnectionLogEntry>> _hostLogs = new();
     private readonly ConcurrentDictionary<string, string> _lastErrors = new();
 
     public void Log(string hostId, string hostName, string level, string eventName, string message, string? details = null)
@@ -68,27 +69,30 @@ public class ConnectionLogService : IConnectionLogService
             _lastErrors.TryRemove(hostId, out _);
         }
 
-        lock (_lock)
+        _allLogs.Enqueue(entry);
+        while (_allLogs.Count > MaxLogCapacity && _allLogs.TryDequeue(out _)) { }
+
+        if (!string.IsNullOrEmpty(hostId))
         {
-            _logs.AddFirst(entry);
-            if (_logs.Count > MaxLogCapacity)
-            {
-                _logs.RemoveLast();
-            }
+            var hostQueue = _hostLogs.GetOrAdd(hostId, _ => new ConcurrentQueue<ConnectionLogEntry>());
+            hostQueue.Enqueue(entry);
+            while (hostQueue.Count > MaxHostLogCapacity && hostQueue.TryDequeue(out _)) { }
         }
     }
 
     public List<ConnectionLogEntry> GetLogs(string? hostId = null, int limit = 100)
     {
-        lock (_lock)
+        var clampedLimit = Math.Clamp(limit, 1, 300);
+        if (!string.IsNullOrEmpty(hostId))
         {
-            var query = _logs.AsEnumerable();
-            if (!string.IsNullOrEmpty(hostId))
+            if (_hostLogs.TryGetValue(hostId, out var hostQueue))
             {
-                query = query.Where(l => l.HostId == hostId);
+                return hostQueue.Reverse().Take(clampedLimit).ToList();
             }
-            return query.Take(Math.Clamp(limit, 1, 300)).ToList();
+            return new List<ConnectionLogEntry>();
         }
+
+        return _allLogs.Reverse().Take(clampedLimit).ToList();
     }
 
     public string? GetLastError(string hostId)
@@ -99,27 +103,19 @@ public class ConnectionLogService : IConnectionLogService
 
     public void ClearLogs(string? hostId = null)
     {
-        lock (_lock)
+        if (string.IsNullOrEmpty(hostId))
         {
-            if (string.IsNullOrEmpty(hostId))
+            while (_allLogs.TryDequeue(out _)) { }
+            _hostLogs.Clear();
+            _lastErrors.Clear();
+        }
+        else
+        {
+            if (_hostLogs.TryRemove(hostId, out var q))
             {
-                _logs.Clear();
-                _lastErrors.Clear();
+                while (q.TryDequeue(out _)) { }
             }
-            else
-            {
-                var node = _logs.First;
-                while (node != null)
-                {
-                    var next = node.Next;
-                    if (node.Value.HostId == hostId)
-                    {
-                        _logs.Remove(node);
-                    }
-                    node = next;
-                }
-                _lastErrors.TryRemove(hostId, out _);
-            }
+            _lastErrors.TryRemove(hostId, out _);
         }
     }
 }

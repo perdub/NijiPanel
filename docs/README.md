@@ -33,7 +33,7 @@
 | **IBM Carbon x Nijika Theme** | Строгий индустриальный дизайн IBM Carbon Design System, острые углы `0px`, палитра Dorito Yellow (`#ffd100`), темная тема `#0d0e12`, `#282828`. |
 | **Экосистема Docker & Compose** | Инспекция контейнеров, Crash Watchdog, детектор OOM-Killed (Exit 137), Smart Prune с предпросмотром, Docker Exec терминал и визуальный редактор Compose Studio. |
 | **1-Click App Store (30+ шаблонов)** | Мгновенный деплой PostgreSQL, Redis, Nextcloud, Vaultwarden, Uptime Kuma, Plausible, Gitea, Grafana и других сервисов с подстановкой переменных и поиском в Docker Hub. |
-| **Неубиваемый Web-терминал** | Многовкладочный SSH-терминал на базе tmux и WebSocket с 256 КБ кольцевым буфером. Сессии не сбрасываются при закрытии вкладки или потере связи. |
+| **Неубиваемый Web-терминал** | Многовкладочный SSH-терминал на базе ShellStream и WebSocket с 256 КБ кольцевым буфером. Сессии удерживаются в памяти бэкенда и не сбрасываются при закрытии вкладки или потере связи. |
 | **SFTP File Manager + Monaco Diff** | Полноценный файловый менеджер с Monaco Editor, Diff Viewer перед сохранением, визуализатором Treemap, архивацией (.zip/.tar.gz) и временными ссылками на скачивание. |
 | **Полный SysAdmin Cockpit** | Управление службами Systemd и логами journalctl, учетными записями Linux (/etc/passwd, sudo), обновлениями пакетов (APT/DNF/Pacman/APK), правилами UFW и Fail2ban. |
 | **Безопасность корпоративного уровня** | Аппаратные Passkeys (WebAuthn/FIDO2), шифрование учетных данных AES-256-GCM, PBKDF2 хеширование паролей, рандомизация SSH-портов (20000–59000). |
@@ -73,12 +73,12 @@
 ## 🗺️ Структура документации
 
 1. [🚀 Быстрый старт & Установка](quickstart.md) — запуск в Docker Compose, бинарниках, мастер первого запуска.
-2. [🏗️ Архитектура платформы](architecture.md) — .NET 10, React 19, Renci.SshNet, PTY/tmux, кэширование и маршрутизация.
+2. [🏗️ Архитектура платформы](architecture.md) — .NET 10, React 19, Renci.SshNet, PTY/ShellStream, кэширование и маршрутизация.
 3. [🎨 Дизайн-система IBM Carbon & Nijika Theme](design-system.md) — дизайн-токены, шрифты, правила 0px.
 4. [🖥️ Fleet Overview & Мониторинг](fleet.md) — карточки хостов, sparkline-графики, предсказатель заполнения диска.
 5. [🐳 Docker Containers & Stacks](docker.md) — мониторинг контейнеров, OOM-Killed, Smart Prune, Docker Exec, Compose Studio.
 6. [📦 1-Click App Store](app-store.md) — 32 готовых шаблона, поиск образов Docker Hub.
-7. [💻 SSH Терминал & tmux сессии](terminal.md) — отказоустойчивые PTY-вкладки, буфер обмена, отслеживание CWD.
+7. [💻 SSH Терминал & Persistent сессии](terminal.md) — отказоустойчивые PTY-вкладки, буфер обмена, отслеживание CWD.
 8. [📂 File Manager & SFTP](file-manager.md) — SFTP, Monaco Editor, Treemap, архивация, шаринг файлов по ссылкам.
 9. [⚙️ Systemd Cockpit](systemd.md) — управление демонами Linux, journalctl логи, фильтрация.
 10. [👥 Linux Users & Groups](users.md) — учетные записи Linux, sudo права, блокировка доступа.

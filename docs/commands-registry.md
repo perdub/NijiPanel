@@ -24,7 +24,7 @@
 | **Docker** | 18 | `Docker.ListContainers`, `Docker.ListComposeContainers`, `Docker.ComposeLsProjects`, `Docker.InspectStateBatch` | Мониторинг, инспекция compose-меток контейнеров, Smart Prune |
 | **Users** | 9 | `Users.List`, `Users.Create`, `Users.Lock`, `Users.ToggleSudo`, `Users.Delete` | Аудит пользователей, sudo и блокировка доступа |
 | **Firewall** | 7 | `Firewall.UfwStatus`, `Firewall.UfwAddRule`, `Firewall.Fail2banStatus`, `Firewall.Fail2banUnban` | Управление сетевым экраном UFW и разбан в Fail2ban |
-| **Files** | 7 | `Files.DiskUsageTreemap`, `Files.CreateArchive`, `Files.ExtractArchive`, `Files.DirectTransfer` | Расчет дискового пространства, архивация zip/tar и rsync перенос |
+| **Files** | 7 | `Files.DiskUsage`, `Files.CreateArchive`, `Files.ExtractArchive`, `Files.DirectTransfer` | Расчет дискового пространства, архивация zip/tar и rsync перенос |
 | **Packages** | 6 | `Packages.AptCheck`, `Packages.AptUpgrade`, `Packages.DnfCheck`, `Packages.PacmanUpgrade` | Проверка обновлений и апгрейд пакетов разных ОС |
 | **System** | 4 | `System.StatsProbe`, `System.HardwareBenchmark`, `System.LiveSockets`, `System.HardeningSshPort` | Телеметрия хоста, бенчмарк, открытые сокеты и миграция порта SSH |
 | **Systemd** | 4 | `Systemd.ListServices`, `Systemd.ServiceAction`, `Systemd.ServiceLogs` | Инвентаризация служб, управление состоянием и журнал journalctl |

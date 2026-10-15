@@ -14,7 +14,7 @@
   * [🐳 Docker Containers & Stacks](docker.md)
   * [📦 1-Click App Store (30+ каталогов)](app-store.md)
   * [🧩 Docker Compose Visual Studio](docker.md#docker-compose-visual-studio)
-  * [💻 SSH Терминал & tmux сессии](terminal.md)
+  * [💻 SSH Терминал & Persistent сессии](terminal.md)
   * [📂 File Manager & SFTP Хранилище](file-manager.md)
   * [⚙️ Systemd Cockpit](systemd.md)
   * [👥 Linux Users & Groups](users.md)

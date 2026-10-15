@@ -330,6 +330,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
     const initialDirParam = tab.path && tab.path !== '~' ? `&initialDir=${encodeURIComponent(tab.path)}` : '';
     const wsUrl = `${protocol}//${host}/ws/terminal?hostId=${selectedHost.id}&sessionId=${tab.sessionId}${tabIndexParam}${initialDirParam}&cols=${cols}&rows=${rows}&access_token=${token || ''}`;
     const ws = new WebSocket(wsUrl);
+    ws.binaryType = 'arraybuffer';
     instance.ws = ws;
 
     ws.onopen = () => {
@@ -339,10 +340,33 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
       try {
         fitAddon.fit();
         term.focus();
+
+        // Send initial binary resize packet (0x01 + cols + rows)
+        if (ws.readyState === WebSocket.OPEN) {
+          const frame = new Uint8Array(5);
+          const dv = new DataView(frame.buffer);
+          dv.setUint8(0, 0x01);
+          dv.setUint16(1, term.cols, false);
+          dv.setUint16(3, term.rows, false);
+          ws.send(frame);
+        }
       } catch { }
     };
 
     ws.onmessage = (event) => {
+      if (event.data instanceof ArrayBuffer) {
+        const view = new Uint8Array(event.data);
+        if (view.length === 0) return;
+        const packetType = view[0];
+        const payload = view.subarray(1);
+
+        if (packetType === 0x00 || packetType === 0x02) {
+          // Direct Uint8Array stream into xterm.js streaming UTF-8 parser
+          term.write(payload);
+        }
+        return;
+      }
+
       const data = event.data;
       if (typeof data === 'string' && data.startsWith('{')) {
         try {
@@ -379,9 +403,26 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
       );
     };
 
+    const encoder = new TextEncoder();
     term.onData((data) => {
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(data);
+        const encoded = encoder.encode(data);
+        const frame = new Uint8Array(encoded.length + 1);
+        frame[0] = 0x00;
+        frame.set(encoded, 1);
+        ws.send(frame);
+      }
+    });
+
+    term.onTitleChange((title) => {
+      if (!title) return;
+      // Extract CWD from shell title: e.g. "user@host: ~/work" or OSC 7 file path
+      const match = title.match(/:\s*([~/][^\s]*)/);
+      if (match && match[1]) {
+        const detectedPath = match[1].trim();
+        setTabs((prev) =>
+          prev.map((t) => (t.id === tab.id && t.path !== detectedPath ? { ...t, path: detectedPath } : t))
+        );
       }
     });
   }, [selectedHost]);
@@ -423,7 +464,12 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
           inst.term.refresh(0, inst.term.rows - 1);
           inst.term.focus();
           if (inst.ws && inst.ws.readyState === WebSocket.OPEN) {
-            inst.ws.send(JSON.stringify({ type: 'resize', cols: inst.term.cols, rows: inst.term.rows }));
+            const frame = new Uint8Array(5);
+            const dv = new DataView(frame.buffer);
+            dv.setUint8(0, 0x01);
+            dv.setUint16(1, inst.term.cols, false);
+            dv.setUint16(3, inst.term.rows, false);
+            inst.ws.send(frame);
           }
         } catch { }
       }
@@ -440,7 +486,12 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
         try {
           inst.fitAddon.fit();
           if (inst.ws && inst.ws.readyState === WebSocket.OPEN) {
-            inst.ws.send(JSON.stringify({ type: 'resize', cols: inst.term.cols, rows: inst.term.rows }));
+            const frame = new Uint8Array(5);
+            const dv = new DataView(frame.buffer);
+            dv.setUint8(0, 0x01);
+            dv.setUint16(1, inst.term.cols, false);
+            dv.setUint16(3, inst.term.rows, false);
+            inst.ws.send(frame);
           }
         } catch { }
       }

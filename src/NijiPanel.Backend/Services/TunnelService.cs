@@ -10,9 +10,9 @@ public interface ITunnelService
 {
     Task<List<SshTunnelDto>> GetTunnelsAsync(string hostId);
     Task<SshTunnelDto> CreateTunnelAsync(string hostId, CreateSshTunnelRequest request);
-    Task<bool> DeleteTunnelAsync(string tunnelId);
-    Task<(bool Success, string? Error)> StartTunnelAsync(string tunnelId);
-    Task<bool> StopTunnelAsync(string tunnelId);
+    Task<bool> DeleteTunnelAsync(string tunnelId, string? hostId = null);
+    Task<(bool Success, string? Error)> StartTunnelAsync(string tunnelId, string? hostId = null);
+    Task<bool> StopTunnelAsync(string tunnelId, string? hostId = null);
 }
 
 public class TunnelService : ITunnelService
@@ -79,18 +79,26 @@ public class TunnelService : ITunnelService
         return new SshTunnelDto(id, hostId, request.Name, request.LocalPort, request.RemoteHost, request.RemotePort, false);
     }
 
-    public async Task<bool> DeleteTunnelAsync(string tunnelId)
+    public async Task<bool> DeleteTunnelAsync(string tunnelId, string? hostId = null)
     {
-        await StopTunnelAsync(tunnelId);
+        await StopTunnelAsync(tunnelId, hostId);
 
         using var conn = _dbContext.CreateConnection();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM ssh_tunnels WHERE id = $id;";
+        if (!string.IsNullOrEmpty(hostId))
+        {
+            cmd.CommandText = "DELETE FROM ssh_tunnels WHERE id = $id AND host_id = $hostId;";
+            cmd.Parameters.AddWithValue("$hostId", hostId);
+        }
+        else
+        {
+            cmd.CommandText = "DELETE FROM ssh_tunnels WHERE id = $id;";
+        }
         cmd.Parameters.AddWithValue("$id", tunnelId);
         return cmd.ExecuteNonQuery() > 0;
     }
 
-    public async Task<(bool Success, string? Error)> StartTunnelAsync(string tunnelId)
+    public async Task<(bool Success, string? Error)> StartTunnelAsync(string tunnelId, string? hostId = null)
     {
         if (_activePorts.ContainsKey(tunnelId)) return (true, null);
 
@@ -116,6 +124,7 @@ public class TunnelService : ITunnelService
         }
 
         if (entity == null) return (false, "Tunnel not found");
+        if (!string.IsNullOrEmpty(hostId) && entity.HostId != hostId) return (false, "Tunnel does not belong to specified host");
 
         HostEntity? host;
         using (var scope = _scopeFactory.CreateScope())
@@ -146,8 +155,18 @@ public class TunnelService : ITunnelService
         }
     }
 
-    public Task<bool> StopTunnelAsync(string tunnelId)
+    public Task<bool> StopTunnelAsync(string tunnelId, string? hostId = null)
     {
+        if (!string.IsNullOrEmpty(hostId))
+        {
+            using var conn = _dbContext.CreateConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT host_id FROM ssh_tunnels WHERE id = $id LIMIT 1;";
+            cmd.Parameters.AddWithValue("$id", tunnelId);
+            var actualHostId = Convert.ToString(cmd.ExecuteScalar());
+            if (actualHostId != null && actualHostId != hostId) return Task.FromResult(false);
+        }
+
         if (_activePorts.TryRemove(tunnelId, out var portForward))
         {
             try

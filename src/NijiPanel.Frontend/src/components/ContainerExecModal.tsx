@@ -94,15 +94,37 @@ export const ContainerExecModal: React.FC<ContainerExecModalProps> = ({
     const wsUrl = `${protocol}//${locationHost}/ws/terminal?hostId=${host.id}&containerId=${containerId}&cols=${cols}&rows=${rows}&access_token=${token || ''}`;
 
     const ws = new WebSocket(wsUrl);
+    ws.binaryType = 'arraybuffer';
     socketRef.current = ws;
 
     ws.onopen = () => {
       setConnected(true);
       setConnecting(false);
       term.focus();
+
+      // Initial resize packet
+      if (ws.readyState === WebSocket.OPEN) {
+        const frame = new Uint8Array(5);
+        const dv = new DataView(frame.buffer);
+        dv.setUint8(0, 0x01);
+        dv.setUint16(1, term.cols, false);
+        dv.setUint16(3, term.rows, false);
+        ws.send(frame);
+      }
     };
 
     ws.onmessage = (event) => {
+      if (event.data instanceof ArrayBuffer) {
+        const view = new Uint8Array(event.data);
+        if (view.length === 0) return;
+        const packetType = view[0];
+        const payload = view.subarray(1);
+        if (packetType === 0x00 || packetType === 0x02) {
+          term.write(payload);
+        }
+        return;
+      }
+
       const data = event.data;
       if (typeof data === 'string' && data.startsWith('{"type":"session_info"')) {
         return;
@@ -120,16 +142,26 @@ export const ContainerExecModal: React.FC<ContainerExecModalProps> = ({
       setConnecting(false);
     };
 
+    const encoder = new TextEncoder();
     term.onData((data) => {
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(data);
+        const encoded = encoder.encode(data);
+        const frame = new Uint8Array(encoded.length + 1);
+        frame[0] = 0x00;
+        frame.set(encoded, 1);
+        ws.send(frame);
       }
     });
 
     const handleResize = () => {
       fitAddon?.fit();
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+        const frame = new Uint8Array(5);
+        const dv = new DataView(frame.buffer);
+        dv.setUint8(0, 0x01);
+        dv.setUint16(1, term.cols, false);
+        dv.setUint16(3, term.rows, false);
+        ws.send(frame);
       }
     };
 

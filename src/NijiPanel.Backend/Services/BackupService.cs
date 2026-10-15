@@ -38,12 +38,17 @@ public class BackupService : IBackupService
 {
     private readonly DatabaseContext _dbContext;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IEncryptionService _encryptionService;
     private const string MagicHeader = "SERVERDECK_ENCRYPTED_BACKUP";
 
-    public BackupService(DatabaseContext dbContext, IHttpClientFactory httpClientFactory)
+    public BackupService(
+        DatabaseContext dbContext,
+        IHttpClientFactory httpClientFactory,
+        IEncryptionService encryptionService)
     {
         _dbContext = dbContext;
         _httpClientFactory = httpClientFactory;
+        _encryptionService = encryptionService;
     }
 
     public async Task<string> ExportEncryptedBackupAsync(string passphrase)
@@ -66,6 +71,21 @@ public class BackupService : IBackupService
                 using var reader = cmd.ExecuteReader();
                 while (reader.Read())
                 {
+                    var credEnc = reader.IsDBNull(6) ? null : reader.GetString(6);
+                    var passEnc = reader.IsDBNull(7) ? null : reader.GetString(7);
+
+                    string? plainCred = null;
+                    if (!string.IsNullOrEmpty(credEnc))
+                    {
+                        try { plainCred = _encryptionService.Decrypt(credEnc); } catch { }
+                    }
+
+                    string? plainPass = null;
+                    if (!string.IsNullOrEmpty(passEnc))
+                    {
+                        try { plainPass = _encryptionService.Decrypt(passEnc); } catch { }
+                    }
+
                     hosts.Add(new Dictionary<string, object?>
                     {
                         ["id"] = reader.GetString(0),
@@ -74,8 +94,10 @@ public class BackupService : IBackupService
                         ["port"] = reader.GetInt32(3),
                         ["username"] = reader.GetString(4),
                         ["auth_type"] = reader.GetString(5),
-                        ["credential_encrypted"] = reader.IsDBNull(6) ? null : reader.GetString(6),
-                        ["passphrase_encrypted"] = reader.IsDBNull(7) ? null : reader.GetString(7),
+                        ["credential_plain"] = plainCred,
+                        ["passphrase_plain"] = plainPass,
+                        ["credential_encrypted"] = credEnc,
+                        ["passphrase_encrypted"] = passEnc,
                         ["notes"] = reader.IsDBNull(8) ? null : reader.GetString(8),
                         ["tags"] = reader.IsDBNull(9) ? null : reader.GetString(9),
                         ["created_at"] = reader.GetString(10),
@@ -272,14 +294,34 @@ public class BackupService : IBackupService
                         notes = excluded.notes,
                         tags = excluded.tags;
                 ";
+                string? finalCredEnc = null;
+                if (h.TryGetProperty("credential_plain", out var cp) && cp.ValueKind != JsonValueKind.Null && !string.IsNullOrEmpty(cp.GetString()))
+                {
+                    try { finalCredEnc = _encryptionService.Encrypt(cp.GetString()!); } catch { }
+                }
+                else if (h.TryGetProperty("credential_encrypted", out var c) && c.ValueKind != JsonValueKind.Null)
+                {
+                    finalCredEnc = c.GetString();
+                }
+
+                string? finalPassEnc = null;
+                if (h.TryGetProperty("passphrase_plain", out var pp) && pp.ValueKind != JsonValueKind.Null && !string.IsNullOrEmpty(pp.GetString()))
+                {
+                    try { finalPassEnc = _encryptionService.Encrypt(pp.GetString()!); } catch { }
+                }
+                else if (h.TryGetProperty("passphrase_encrypted", out var p) && p.ValueKind != JsonValueKind.Null)
+                {
+                    finalPassEnc = p.GetString();
+                }
+
                 cmd.Parameters.AddWithValue("$id", h.GetProperty("id").GetString() ?? Guid.NewGuid().ToString());
                 cmd.Parameters.AddWithValue("$name", h.GetProperty("name").GetString() ?? "");
                 cmd.Parameters.AddWithValue("$host", h.GetProperty("host").GetString() ?? "");
                 cmd.Parameters.AddWithValue("$port", h.GetProperty("port").GetInt32());
                 cmd.Parameters.AddWithValue("$user", h.GetProperty("username").GetString() ?? "root");
                 cmd.Parameters.AddWithValue("$auth", h.GetProperty("auth_type").GetString() ?? "global_key");
-                cmd.Parameters.AddWithValue("$cred", h.TryGetProperty("credential_encrypted", out var c) && c.ValueKind != JsonValueKind.Null ? c.GetString() : (object)DBNull.Value);
-                cmd.Parameters.AddWithValue("$pass", h.TryGetProperty("passphrase_encrypted", out var p) && p.ValueKind != JsonValueKind.Null ? p.GetString() : (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("$cred", (object?)finalCredEnc ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("$pass", (object?)finalPassEnc ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("$notes", h.TryGetProperty("notes", out var n) && n.ValueKind != JsonValueKind.Null ? n.GetString() : (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("$tags", h.TryGetProperty("tags", out var t) && t.ValueKind != JsonValueKind.Null ? t.GetString() : (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("$created", h.TryGetProperty("created_at", out var cr) && cr.ValueKind != JsonValueKind.Null ? cr.GetString() : DateTime.UtcNow.ToString("o"));
@@ -338,6 +380,32 @@ public class BackupService : IBackupService
             }
         }
 
+        // Import SSH Tunnels
+        if (root.TryGetProperty("ssh_tunnels", out var tunnelsEl))
+        {
+            foreach (var t in tunnelsEl.EnumerateArray())
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.Transaction = trans;
+                cmd.CommandText = @"
+                    INSERT INTO ssh_tunnels (id, host_id, name, local_port, remote_host, remote_port, is_active)
+                    VALUES ($id, $host_id, $name, $local_port, $remote_host, $remote_port, 0)
+                    ON CONFLICT(id) DO UPDATE SET
+                        name = excluded.name,
+                        local_port = excluded.local_port,
+                        remote_host = excluded.remote_host,
+                        remote_port = excluded.remote_port;
+                ";
+                cmd.Parameters.AddWithValue("$id", t.GetProperty("id").GetString() ?? Guid.NewGuid().ToString());
+                cmd.Parameters.AddWithValue("$host_id", t.GetProperty("host_id").GetString() ?? "");
+                cmd.Parameters.AddWithValue("$name", t.GetProperty("name").GetString() ?? "");
+                cmd.Parameters.AddWithValue("$local_port", t.GetProperty("local_port").GetInt32());
+                cmd.Parameters.AddWithValue("$remote_host", t.TryGetProperty("remote_host", out var rh) && rh.ValueKind != JsonValueKind.Null ? rh.GetString() : "127.0.0.1");
+                cmd.Parameters.AddWithValue("$remote_port", t.GetProperty("remote_port").GetInt32());
+                cmd.ExecuteNonQuery();
+            }
+        }
+
         trans.Commit();
         return importedCount;
     }
@@ -389,22 +457,37 @@ public class BackupService : IBackupService
     public async Task<int> ImportFromCloudAsync(CloudImportRequest request)
     {
         var targetUrl = request.ShareCodeOrUrl.Trim();
-        if (!targetUrl.StartsWith("http://") && !targetUrl.StartsWith("https://"))
+        if (!targetUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !targetUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
         {
-            // If just code, assume paste.rs or dpaste
-            targetUrl = $"https://paste.rs/{targetUrl}";
+            var sanitizedCode = new string(targetUrl.Where(c => char.IsLetterOrDigit(c) || c == '-' || c == '_').ToArray());
+            if (string.IsNullOrEmpty(sanitizedCode))
+            {
+                throw new ArgumentException("Invalid share code format");
+            }
+            targetUrl = $"https://paste.rs/{sanitizedCode}";
+        }
+
+        if (!Uri.TryCreate(targetUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+        {
+            throw new ArgumentException("Only secure HTTPS cloud endpoints are permitted");
+        }
+
+        var host = uri.Host.ToLowerInvariant();
+        if (host != "paste.rs" && host != "dpaste.org" && !host.EndsWith(".paste.rs") && !host.EndsWith(".dpaste.org"))
+        {
+            throw new ArgumentException($"Host '{uri.Host}' is not in the allowed cloud provider list (paste.rs, dpaste.org)");
         }
 
         var client = _httpClientFactory.CreateClient();
-        var res = await client.GetAsync(targetUrl);
+        var res = await client.GetAsync(uri);
 
         if (!res.IsSuccessStatusCode)
         {
             // Try dpaste /raw if code failed on paste.rs
-            if (!targetUrl.Contains("/raw"))
+            if (!targetUrl.Contains("/raw") && host.Contains("dpaste"))
             {
-                var dpasteUrl = targetUrl + "/raw";
-                var dpasteRes = await client.GetAsync(dpasteUrl);
+                var dpasteUri = new Uri(targetUrl.TrimEnd('/') + "/raw");
+                var dpasteRes = await client.GetAsync(dpasteUri);
                 if (dpasteRes.IsSuccessStatusCode)
                 {
                     res = dpasteRes;

@@ -8,7 +8,7 @@ public interface IHostExtrasService
 {
     Task<List<HostPortDto>> GetPortsAsync(string hostId);
     Task<HostPortDto> AddPortAsync(string hostId, CreateHostPortRequest request);
-    Task<bool> DeletePortAsync(string portId);
+    Task<bool> DeletePortAsync(string hostId, string portId);
 
     Task<HostNoteDto?> GetNoteAsync(string hostId);
     Task<HostNoteDto> SaveNoteAsync(string hostId, SaveHostNoteRequest request);
@@ -82,12 +82,13 @@ public class HostExtrasService : IHostExtrasService
         return new HostPortDto(id, hostId, request.Port, request.Protocol, request.ServiceName, request.Description);
     }
 
-    public async Task<bool> DeletePortAsync(string portId)
+    public async Task<bool> DeletePortAsync(string hostId, string portId)
     {
         using var conn = _dbContext.CreateConnection();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM host_ports WHERE id = $id;";
+        cmd.CommandText = "DELETE FROM host_ports WHERE id = $id AND host_id = $hostId;";
         cmd.Parameters.AddWithValue("$id", portId);
+        cmd.Parameters.AddWithValue("$hostId", hostId);
         return cmd.ExecuteNonQuery() > 0;
     }
 

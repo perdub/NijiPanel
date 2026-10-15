@@ -57,7 +57,7 @@ public interface IFileShareService
     );
     Task<List<SharedFileDto>> ListSharedFilesAsync(string? hostId = null);
     Task<bool> RevokeShareLinkAsync(string token);
-    Task<ShareValidationResult> ValidateAndRecordDownloadAsync(string token, string? password = null);
+    Task<ShareValidationResult> ValidateAndRecordDownloadAsync(string token, string? password = null, bool recordDownload = true);
 }
 
 public class FileShareService : IFileShareService
@@ -185,7 +185,7 @@ public class FileShareService : IFileShareService
         return cmd.ExecuteNonQuery() > 0;
     }
 
-    public async Task<ShareValidationResult> ValidateAndRecordDownloadAsync(string token, string? password = null)
+    public async Task<ShareValidationResult> ValidateAndRecordDownloadAsync(string token, string? password = null, bool recordDownload = true)
     {
         using var conn = _dbContext.CreateConnection();
         using var cmd = conn.CreateCommand();
@@ -231,11 +231,14 @@ public class FileShareService : IFileShareService
             }
         }
 
-        // Increment count
-        using var incCmd = conn.CreateCommand();
-        incCmd.CommandText = "UPDATE shared_files SET download_count = download_count + 1 WHERE id = $id;";
-        incCmd.Parameters.AddWithValue("$id", token);
-        incCmd.ExecuteNonQuery();
+        // Increment count only when requested (e.g. not on HEAD requests or partial range requests > 0)
+        if (recordDownload)
+        {
+            using var incCmd = conn.CreateCommand();
+            incCmd.CommandText = "UPDATE shared_files SET download_count = download_count + 1 WHERE id = $id;";
+            incCmd.Parameters.AddWithValue("$id", token);
+            incCmd.ExecuteNonQuery();
+        }
 
         var host = await _hostService.GetHostEntityAsync(hostId);
         if (host == null) return new ShareValidationResult(ShareValidationStatus.NotFound);
