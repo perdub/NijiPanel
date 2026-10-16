@@ -42,6 +42,7 @@ export interface SidebarProps {
   setMobileOpen: (open: boolean) => void;
   width: number;
   setWidth: (width: number) => void;
+  isDesktop?: boolean;
 }
 
 interface TreeItem {
@@ -78,6 +79,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setMobileOpen,
   width,
   setWidth,
+  isDesktop = true,
 }) => {
   const [hostDropdownOpen, setHostDropdownOpen] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -198,10 +200,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Sidebar Container */}
       <aside
         style={{
-          width: isCollapsed ? '72px' : `${width}px`,
+          width: isDesktop ? (isCollapsed ? '72px' : `${width}px`) : undefined,
         }}
-        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col bg-carbon-950 border-r border-carbon-700 transition-[width,transform] duration-150 select-none ${
-          mobileOpen ? 'translate-x-0 !w-72' : '-translate-x-full lg:translate-x-0'
+        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col bg-carbon-950 border-r border-carbon-700 transition-[width,transform] duration-150 select-none w-72 max-w-[85vw] lg:max-w-none ${
+          mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         {/* Resize Handle (Right Border) */}

@@ -36,12 +36,12 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   const currentTab = TAB_TITLES[activeTab] || { title: 'Dashboard', subtitle: 'Server administration' };
 
   return (
-    <header className="h-16 border-b border-carbon-700 bg-carbon-900/80 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none">
-      <div className="flex items-center gap-3 min-w-0">
+    <header className="h-16 border-b border-carbon-700 bg-carbon-900/80 px-3 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none">
+      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
         {/* Mobile Sidebar Hamburger */}
         <button
           onClick={onOpenMobileSidebar}
-          className="lg:hidden p-2 rounded text-carbon-400 hover:text-white hover:bg-carbon-800 transition-colors"
+          className="lg:hidden p-2 rounded text-carbon-400 hover:text-white hover:bg-carbon-800 transition-colors shrink-0"
           title="Open menu"
         >
           <Menu className="w-5 h-5" />

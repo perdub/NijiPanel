@@ -68,7 +68,12 @@ export const HostsView: React.FC<HostsViewProps> = ({
   const [editHost, setEditHost] = useState<Host | null>(null);
   const [setupCommandModalOpen, setSetupCommandModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      return 'grid';
+    }
+    return 'table';
+  });
 
   // Form states
   const [formName, setFormName] = useState('');
@@ -421,7 +426,7 @@ export const HostsView: React.FC<HostsViewProps> = ({
       {viewMode === 'table' ? (
         <div className="rounded-lg border border-carbon-800 bg-[#0a0a0a] overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs font-sans">
+            <table className="w-full text-left text-xs font-sans min-w-[680px]">
               <thead className="bg-[#111111] border-b border-carbon-800 text-carbon-400 font-mono text-[11px] uppercase tracking-wider">
                 <tr>
                   <th className="py-2.5 px-3 font-medium">Status & Node</th>

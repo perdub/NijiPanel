@@ -735,11 +735,11 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ selectedHost }) => {
               </div>
 
               <span className="text-carbon-600 hidden sm:inline">|</span>
-              <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono bg-carbon-900 px-2 py-0.5 border border-carbon-750" title="Host keeps this session alive via tmux daemon">
-                <Layers className="w-3 h-3 text-amber-400 shrink-0" />
-                <span className="text-carbon-400 text-[10px] uppercase">TMUX:</span>
-                <span className="font-semibold text-amber-300">
-                  {activeTab.tmuxSession || `niji-${activeTab.tabIndex || 1}`}
+              <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono bg-carbon-900 px-2 py-0.5 border border-carbon-750" title="Backend keeps this session alive via persistent PTY">
+                <Layers className="w-3 h-3 text-dorito-500 shrink-0" />
+                <span className="text-carbon-400 text-[10px] uppercase">PTY:</span>
+                <span className="font-semibold text-dorito-400">
+                  Tab {activeTab.tabIndex || 1}
                 </span>
               </div>
             </div>

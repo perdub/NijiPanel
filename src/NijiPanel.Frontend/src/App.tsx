@@ -115,6 +115,20 @@ export const App: React.FC = () => {
     }
   });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024;
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Notification center states
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -393,11 +407,12 @@ export const App: React.FC = () => {
         setMobileOpen={setMobileSidebarOpen}
         width={sidebarWidth}
         setWidth={setSidebarWidth}
+        isDesktop={isDesktop}
       />
 
       <div
         style={{
-          paddingLeft: sidebarCollapsed ? '72px' : `${sidebarWidth}px`,
+          paddingLeft: isDesktop ? (sidebarCollapsed ? '72px' : `${sidebarWidth}px`) : 0,
         }}
         className="flex-1 flex flex-col min-w-0 bg-black min-h-screen transition-[padding] duration-150"
       >
@@ -410,7 +425,7 @@ export const App: React.FC = () => {
           onOpenOnboarding={() => setOnboardingOpen(true)}
         />
 
-        <main className="flex-1 w-full p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto overflow-x-hidden">
+        <main className="flex-1 w-full p-3 sm:p-6 lg:p-8 max-w-[1600px] mx-auto overflow-x-hidden">
           {activeTab === 'hosts' && (
             <HostsView
               hosts={hosts}
